@@ -1989,17 +1989,40 @@ const __filename$1 = fileURLToPath(import.meta.url);
 const __dirname$1 = path.dirname(__filename$1);
 let win = null;
 let unlockedVaultPassword = null;
+let hasUnsavedNoteChanges = false;
+let isForceClosing = false;
+let closePromptPending = false;
 const isDev = !app.isPackaged;
+function getWindowIconPath() {
+  if (isDev) {
+    return path.join(app.getAppPath(), "public", "myvault.png");
+  }
+  return path.join(process.resourcesPath, "public", "myvault.png");
+}
 function createWindow() {
+  isForceClosing = false;
+  closePromptPending = false;
   win = new BrowserWindow({
     width: 1180,
     height: 780,
     minWidth: 940,
     minHeight: 680,
+    title: "MyVault",
+    icon: getWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname$1, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false
+    }
+  });
+  win.on("close", (event) => {
+    if (isForceClosing) return;
+    if (hasUnsavedNoteChanges) {
+      event.preventDefault();
+      if (!closePromptPending) {
+        closePromptPending = true;
+        win == null ? void 0 : win.webContents.send("app:close-requested");
+      }
     }
   });
   if (isDev) {
@@ -2063,6 +2086,7 @@ ipcMain.handle("auth:unlockVault", async (_event, vaultPassword) => {
 ipcMain.handle("auth:logout", async () => {
   logout();
   unlockedVaultPassword = null;
+  hasUnsavedNoteChanges = false;
   return { ok: true };
 });
 ipcMain.handle("auth:deleteCurrentUser", async () => {
@@ -2080,6 +2104,7 @@ ipcMain.handle("auth:deleteCurrentUser", async () => {
     const notesPath2 = notesFilePath(current);
     await fs.rm(notesPath2, { force: true });
     unlockedVaultPassword = null;
+    hasUnsavedNoteChanges = false;
     return result;
   } catch (error) {
     return {
@@ -2169,6 +2194,21 @@ ipcMain.handle("notes:save", async (_event, data) => {
       error: error instanceof Error ? error.message : "No se pudieron guardar las anotaciones."
     };
   }
+});
+ipcMain.handle("app:set-unsaved-note-changes", async (_event, value) => {
+  hasUnsavedNoteChanges = value;
+  return { ok: true };
+});
+ipcMain.handle("app:confirm-close-after-prompt", async () => {
+  closePromptPending = false;
+  hasUnsavedNoteChanges = false;
+  isForceClosing = true;
+  win == null ? void 0 : win.close();
+  return { ok: true };
+});
+ipcMain.handle("app:cancel-close-after-prompt", async () => {
+  closePromptPending = false;
+  return { ok: true };
 });
 app.whenReady().then(createWindow);
 app.on("activate", () => {

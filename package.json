@@ -1,5 +1,6 @@
 {
-  "name": "mi-electron-app",
+  "name": "myvault",
+  "productName": "MyVault",
   "private": true,
   "version": "0.0.0",
   "type": "module",

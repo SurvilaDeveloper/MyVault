@@ -19,20 +19,49 @@ const __dirname = path.dirname(__filename)
 
 let win: BrowserWindow | null = null
 let unlockedVaultPassword: string | null = null
+let hasUnsavedNoteChanges = false
+let isForceClosing = false
+let closePromptPending = false
 
 const isDev = !app.isPackaged
 
+function getWindowIconPath() {
+  if (isDev) {
+    return path.join(app.getAppPath(), 'public', 'myvault.png')
+  }
+
+  return path.join(process.resourcesPath, 'public', 'myvault.png')
+}
+
 function createWindow() {
+  isForceClosing = false
+  closePromptPending = false
+
   win = new BrowserWindow({
     width: 1180,
     height: 780,
     minWidth: 940,
     minHeight: 680,
+    title: 'MyVault',
+    icon: getWindowIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  win.on('close', (event) => {
+    if (isForceClosing) return
+
+    if (hasUnsavedNoteChanges) {
+      event.preventDefault()
+
+      if (!closePromptPending) {
+        closePromptPending = true
+        win?.webContents.send('app:close-requested')
+      }
+    }
   })
 
   if (isDev) {
@@ -107,6 +136,7 @@ ipcMain.handle('auth:unlockVault', async (_event, vaultPassword: string) => {
 ipcMain.handle('auth:logout', async () => {
   logout()
   unlockedVaultPassword = null
+  hasUnsavedNoteChanges = false
   return { ok: true }
 })
 
@@ -130,6 +160,7 @@ ipcMain.handle('auth:deleteCurrentUser', async () => {
     await fs.rm(notesPath, { force: true })
 
     unlockedVaultPassword = null
+    hasUnsavedNoteChanges = false
 
     return result
   } catch (error) {
@@ -232,6 +263,24 @@ ipcMain.handle('notes:save', async (_event, data: NotesData) => {
       error: error instanceof Error ? error.message : 'No se pudieron guardar las anotaciones.',
     }
   }
+})
+
+ipcMain.handle('app:set-unsaved-note-changes', async (_event, value: boolean) => {
+  hasUnsavedNoteChanges = value
+  return { ok: true }
+})
+
+ipcMain.handle('app:confirm-close-after-prompt', async () => {
+  closePromptPending = false
+  hasUnsavedNoteChanges = false
+  isForceClosing = true
+  win?.close()
+  return { ok: true }
+})
+
+ipcMain.handle('app:cancel-close-after-prompt', async () => {
+  closePromptPending = false
+  return { ok: true }
 })
 
 app.whenReady().then(createWindow)

@@ -75,6 +75,14 @@ declare global {
             loadNotes: () => Promise<NotesLoadResult>
 
             saveNotes: (data: NotesData) => Promise<BasicResult>
+
+            setUnsavedNoteChanges: (value: boolean) => Promise<BasicResult>
+
+            confirmCloseAfterPrompt: () => Promise<BasicResult>
+
+            cancelCloseAfterPrompt: () => Promise<BasicResult>
+
+            onCloseRequested: (callback: () => void) => () => void
         }
     }
 }

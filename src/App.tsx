@@ -16,6 +16,12 @@ type Note = {
   content: string
 }
 
+type UnsavedPromptAction =
+  | 'go-home'
+  | 'close-app'
+  | 'switch-note'
+  | 'new-note'
+
 function createEmptyNote(): Note {
   return {
     id: crypto.randomUUID(),
@@ -56,6 +62,10 @@ export default function App() {
   const [savingPasswords, setSavingPasswords] = useState(false)
   const [savingNotes, setSavingNotes] = useState(false)
   const [showPasswords, setShowPasswords] = useState(false)
+
+  const [unsavedPromptAction, setUnsavedPromptAction] =
+    useState<UnsavedPromptAction | null>(null)
+  const [pendingNoteSelectionId, setPendingNoteSelectionId] = useState<string | null>(null)
 
   useEffect(() => {
     if (view !== 'passwords') return
@@ -159,8 +169,27 @@ export default function App() {
 
     if (!q) return effectiveNotesForSidebar
 
-    return effectiveNotesForSidebar.filter((note) => note.title.trim().toLowerCase().includes(q))
+    return effectiveNotesForSidebar.filter((note) =>
+      note.title.trim().toLowerCase().includes(q),
+    )
   }, [effectiveNotesForSidebar, notesSearch])
+
+  useEffect(() => {
+    void window.api.setUnsavedNoteChanges(view === 'notes' && noteHasUnsavedChanges)
+  }, [view, noteHasUnsavedChanges])
+
+  useEffect(() => {
+    const unsubscribe = window.api.onCloseRequested(() => {
+      if (view === 'notes' && noteHasUnsavedChanges) {
+        setUnsavedPromptAction('close-app')
+        return
+      }
+
+      void window.api.confirmCloseAfterPrompt()
+    })
+
+    return unsubscribe
+  }, [view, noteHasUnsavedChanges])
 
   async function handleLogin() {
     setStatus('Iniciando sesión...')
@@ -241,8 +270,8 @@ export default function App() {
     setStatus('Contraseñas guardadas.')
   }
 
-  async function handleSaveCurrentNote() {
-    if (!noteDraft) return
+  async function handleSaveCurrentNote(): Promise<boolean> {
+    if (!noteDraft) return false
 
     const normalizedTitle = noteDraft.title.trim()
     const normalizedContent = noteDraft.content
@@ -272,10 +301,28 @@ export default function App() {
 
     if (!result.ok) {
       setStatus(result.error ?? 'No se pudo guardar la anotación.')
-      return
+      return false
     }
 
     setStatus('Anotación guardada.')
+    return true
+  }
+
+  function discardCurrentNoteChanges() {
+    const saved = savedSelectedNote
+
+    if (saved) {
+      setSelectedNoteId(saved.id)
+      setNoteDraft({ ...saved })
+      setStatus('Cambios descartados.')
+      return
+    }
+
+    const fallback = notes[0] ?? null
+
+    setSelectedNoteId(fallback?.id ?? null)
+    setNoteDraft(fallback ? { ...fallback } : null)
+    setStatus('Cambios descartados.')
   }
 
   async function handleDeleteCurrentNote() {
@@ -299,7 +346,9 @@ export default function App() {
 
     setNotes(nextNotes)
     setSelectedNoteId(nextSelectedId)
-    setNoteDraft(nextSelectedId ? { ...(nextNotes.find((n) => n.id === nextSelectedId) as Note) } : null)
+    setNoteDraft(
+      nextSelectedId ? { ...(nextNotes.find((n) => n.id === nextSelectedId) as Note) } : null,
+    )
 
     setSavingNotes(true)
     setStatus('Eliminando anotación...')
@@ -332,6 +381,8 @@ export default function App() {
     setSelectedNoteId(null)
     setNoteDraft(null)
     setNotesSearch('')
+    setUnsavedPromptAction(null)
+    setPendingNoteSelectionId(null)
     setLoginUsername('')
     setLoginPassword('')
     setUnlockPassword('')
@@ -368,6 +419,8 @@ export default function App() {
     setSelectedNoteId(null)
     setNoteDraft(null)
     setNotesSearch('')
+    setUnsavedPromptAction(null)
+    setPendingNoteSelectionId(null)
     setLoginUsername('')
     setLoginPassword('')
     setUnlockPassword('')
@@ -396,19 +449,21 @@ export default function App() {
     ])
   }
 
-  function handleNewNote() {
-    if (noteHasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'Tenés cambios sin guardar en la anotación actual. ¿Querés descartarlos y crear una nueva anotación?',
-      )
-
-      if (!confirmed) return
-    }
-
+  function createAndSelectNewNote() {
     const freshNote = createEmptyNote()
     setSelectedNoteId(freshNote.id)
     setNoteDraft(freshNote)
     setStatus('Nueva anotación lista para editar.')
+  }
+
+  function handleNewNote() {
+    if (noteHasUnsavedChanges) {
+      setPendingNoteSelectionId(null)
+      setUnsavedPromptAction('new-note')
+      return
+    }
+
+    createAndSelectNewNote()
   }
 
   function getNoteButtonLabel(note: Note, index: number) {
@@ -421,29 +476,142 @@ export default function App() {
     if (noteId === selectedNoteId) return
 
     if (noteHasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'Tenés cambios sin guardar en la anotación actual. ¿Querés descartarlos y abrir otra anotación?',
-      )
-
-      if (!confirmed) return
+      setPendingNoteSelectionId(noteId)
+      setUnsavedPromptAction('switch-note')
+      return
     }
 
     setSelectedNoteId(noteId)
+  }
+
+  function handleGoHomeRequest() {
+    if (view === 'notes' && noteHasUnsavedChanges) {
+      setUnsavedPromptAction('go-home')
+      return
+    }
+
+    setView('home')
+  }
+
+  async function resolveUnsavedPrompt(decision: 'save' | 'discard' | 'cancel') {
+    const action = unsavedPromptAction
+    if (!action) return
+
+    if (decision === 'cancel') {
+      setUnsavedPromptAction(null)
+      setPendingNoteSelectionId(null)
+
+      if (action === 'close-app') {
+        await window.api.cancelCloseAfterPrompt()
+      }
+
+      return
+    }
+
+    if (decision === 'save') {
+      const ok = await handleSaveCurrentNote()
+
+      if (!ok) {
+        if (action === 'close-app') {
+          await window.api.cancelCloseAfterPrompt()
+        }
+        setUnsavedPromptAction(null)
+        setPendingNoteSelectionId(null)
+        return
+      }
+    }
+
+    if (decision === 'discard') {
+      discardCurrentNoteChanges()
+    }
+
+    const pendingId = pendingNoteSelectionId
+
+    setUnsavedPromptAction(null)
+    setPendingNoteSelectionId(null)
+
+    if (action === 'go-home') {
+      setView('home')
+      return
+    }
+
+    if (action === 'close-app') {
+      await window.api.confirmCloseAfterPrompt()
+      return
+    }
+
+    if (action === 'switch-note') {
+      if (pendingId) {
+        setSelectedNoteId(pendingId)
+      }
+      return
+    }
+
+    if (action === 'new-note') {
+      createAndSelectNewNote()
+    }
   }
 
   const selectedNoteExistsInSavedList = selectedNoteId
     ? notes.some((note) => note.id === selectedNoteId)
     : false
 
+  const promptTitle =
+    unsavedPromptAction === 'close-app'
+      ? 'Hay cambios sin guardar antes de cerrar la aplicación'
+      : unsavedPromptAction === 'go-home'
+        ? 'Hay cambios sin guardar antes de volver al inicio'
+        : unsavedPromptAction === 'switch-note'
+          ? 'Hay cambios sin guardar antes de abrir otra anotación'
+          : 'Hay cambios sin guardar antes de crear una nueva anotación'
+
+  const promptDescription =
+    unsavedPromptAction === 'close-app'
+      ? 'La anotación actual tiene cambios sin guardar. Podés guardar y salir, salir sin guardar, o cancelar.'
+      : unsavedPromptAction === 'go-home'
+        ? 'La anotación actual tiene cambios sin guardar. Podés guardar e ir al inicio, ir al inicio sin guardar, o cancelar.'
+        : unsavedPromptAction === 'switch-note'
+          ? 'La anotación actual tiene cambios sin guardar. Podés guardar y abrir la otra anotación, abrir la otra anotación sin guardar, o cancelar.'
+          : 'La anotación actual tiene cambios sin guardar. Podés guardar y crear una nueva anotación, crear una nueva sin guardar, o cancelar.'
+
+  const promptPrimaryLabel =
+    unsavedPromptAction === 'close-app'
+      ? 'Guardar y salir'
+      : unsavedPromptAction === 'go-home'
+        ? 'Guardar e ir al inicio'
+        : unsavedPromptAction === 'switch-note'
+          ? 'Guardar y abrir otra'
+          : 'Guardar y crear nueva'
+
+  const promptSecondaryLabel =
+    unsavedPromptAction === 'close-app'
+      ? 'Salir sin guardar'
+      : unsavedPromptAction === 'go-home'
+        ? 'Ir al inicio sin guardar'
+        : unsavedPromptAction === 'switch-note'
+          ? 'Abrir otra sin guardar'
+          : 'Crear nueva sin guardar'
+
   if (view === 'auth') {
     return (
       <div style={pageStyle}>
         <div style={authWrapperStyle}>
           <div style={heroStyle}>
-            <h1 style={titleStyle}>Gestor de contraseñas</h1>
-            <p style={subtitleStyle}>
-              Login para entrar a la app. Master password aparte para desbloquear el vault.
-            </p>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'start',
+              alignItems: 'center'
+            }}>
+              <img src="/icon128.png" alt="Logo de MyVault de 128 x 128" />
+              <h1 style={titleStyle}>MyVault</h1>
+
+            </div>
+
+            {/*<p style={subtitleStyle}>
+              Login para entrar a la app. Master password aparte para desbloquear el
+              vault.
+            </p>*/}
           </div>
 
           <div style={authGridStyle}>
@@ -713,137 +881,182 @@ export default function App() {
   }
 
   return (
-    <div style={pageStyle}>
-      <div style={appShellStyle}>
-        <div style={toolbarStyle}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 28 }}>Anotaciones privadas</h1>
-            <div style={{ marginTop: 6, color: '#5b6472' }}>
-              {totalNotes} {totalNotes === 1 ? 'anotación' : 'anotaciones'}
+    <>
+      <div style={pageStyle}>
+        <div style={appShellStyle}>
+          <div style={toolbarStyle}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 28 }}>Anotaciones privadas</h1>
+              <div style={{ marginTop: 6, color: '#5b6472' }}>
+                {totalNotes} {totalNotes === 1 ? 'anotación' : 'anotaciones'}
+              </div>
+            </div>
+
+            <div style={toolbarButtonsStyle}>
+              <button style={ghostButtonStyle} onClick={handleGoHomeRequest}>
+                Inicio
+              </button>
+              <button style={secondaryButtonStyle} onClick={handleNewNote}>
+                Nueva anotación
+              </button>
+              <button
+                style={ghostButtonStyle}
+                onClick={discardCurrentNoteChanges}
+                disabled={!noteHasUnsavedChanges}
+              >
+                Descartar cambios
+              </button>
+              <button
+                style={primaryButtonStyle}
+                onClick={() => void handleSaveCurrentNote()}
+                disabled={savingNotes || !noteDraft}
+              >
+                {savingNotes ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button
+                style={dangerButtonStyle}
+                onClick={() => void handleDeleteCurrentNote()}
+                disabled={!selectedNoteId}
+              >
+                Eliminar
+              </button>
+              <button style={dangerButtonStyle} onClick={handleLogout}>
+                Cerrar sesión
+              </button>
             </div>
           </div>
 
-          <div style={toolbarButtonsStyle}>
-            <button style={ghostButtonStyle} onClick={() => setView('home')}>
-              Inicio
-            </button>
-            <button style={secondaryButtonStyle} onClick={handleNewNote}>
-              Nueva anotación
-            </button>
-            <button
-              style={primaryButtonStyle}
-              onClick={handleSaveCurrentNote}
-              disabled={savingNotes || !noteDraft}
-            >
-              {savingNotes ? 'Guardando...' : 'Guardar'}
-            </button>
-            <button
-              style={dangerButtonStyle}
-              onClick={handleDeleteCurrentNote}
-              disabled={!selectedNoteId}
-            >
-              Eliminar
-            </button>
-            <button style={dangerButtonStyle} onClick={handleLogout}>
-              Cerrar sesión
-            </button>
+          <div style={notesLayoutStyle}>
+            <aside style={notesSidebarStyle}>
+              <div style={notesSidebarHeaderRowStyle}>
+                <div style={notesSidebarHeaderStyle}>Tus anotaciones</div>
+                {noteHasUnsavedChanges ? (
+                  <div style={unsavedBadgeStyle}>Sin guardar</div>
+                ) : (
+                  <div style={savedBadgeStyle}>Guardado</div>
+                )}
+              </div>
+
+              <input
+                style={searchInputStyle}
+                value={notesSearch}
+                onChange={(e) => setNotesSearch(e.target.value)}
+                placeholder="Buscar por título..."
+              />
+
+              <div style={notesButtonsListStyle}>
+                {filteredNotes.length === 0 ? (
+                  <div style={emptySidebarStyle}>
+                    {notesSearch.trim()
+                      ? 'No hay anotaciones que coincidan con la búsqueda.'
+                      : 'Todavía no hay anotaciones guardadas.'}
+                  </div>
+                ) : (
+                  filteredNotes.map((note, index) => {
+                    const isActive = note.id === selectedNoteId
+                    const isDraftOnly = !notes.some((saved) => saved.id === note.id)
+
+                    return (
+                      <button
+                        key={note.id}
+                        style={{
+                          ...noteListButtonStyle,
+                          ...(isActive ? noteListButtonActiveStyle : null),
+                        }}
+                        onClick={() => handleSelectNote(note.id)}
+                      >
+                        <div style={noteButtonTitleStyle}>
+                          {getNoteButtonLabel(note, index)}
+                        </div>
+                        <div style={noteButtonMetaStyle}>
+                          {isDraftOnly ? 'Nueva' : 'Guardada'}
+                          {isActive && noteHasUnsavedChanges ? ' · con cambios' : ''}
+                        </div>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </aside>
+
+            <section style={notesEditorStyle}>
+              {!noteDraft ? (
+                <div style={emptyStateStyle}>
+                  Seleccioná una anotación o creá una nueva para empezar.
+                </div>
+              ) : (
+                <div style={noteEditorCardStyle}>
+                  <div style={noteMetaStyle}>
+                    {selectedNoteExistsInSavedList ? 'Anotación guardada' : 'Nueva anotación'}
+                    {noteHasUnsavedChanges
+                      ? ' · cambios sin guardar'
+                      : ' · sin cambios pendientes'}
+                  </div>
+
+                  <label style={labelStyle}>Título</label>
+                  <input
+                    style={inputStyle}
+                    value={noteDraft.title}
+                    onChange={(e) =>
+                      setNoteDraft((prev) =>
+                        prev ? { ...prev, title: e.target.value } : prev,
+                      )
+                    }
+                    placeholder="Título de la anotación"
+                  />
+
+                  <label style={labelStyle}>Texto</label>
+                  <textarea
+                    style={textareaStyle}
+                    value={noteDraft.content}
+                    onChange={(e) =>
+                      setNoteDraft((prev) =>
+                        prev ? { ...prev, content: e.target.value } : prev,
+                      )
+                    }
+                    placeholder="Escribí tu anotación privada..."
+                  />
+                </div>
+              )}
+            </section>
           </div>
+
+          <div style={statusBoxStyle}>{status}</div>
         </div>
-
-        <div style={notesLayoutStyle}>
-          <aside style={notesSidebarStyle}>
-            <div style={notesSidebarHeaderRowStyle}>
-              <div style={notesSidebarHeaderStyle}>Tus anotaciones</div>
-              {noteHasUnsavedChanges ? (
-                <div style={unsavedBadgeStyle}>Sin guardar</div>
-              ) : (
-                <div style={savedBadgeStyle}>Guardado</div>
-              )}
-            </div>
-
-            <input
-              style={searchInputStyle}
-              value={notesSearch}
-              onChange={(e) => setNotesSearch(e.target.value)}
-              placeholder="Buscar por título..."
-            />
-
-            <div style={notesButtonsListStyle}>
-              {filteredNotes.length === 0 ? (
-                <div style={emptySidebarStyle}>
-                  {notesSearch.trim()
-                    ? 'No hay anotaciones que coincidan con la búsqueda.'
-                    : 'Todavía no hay anotaciones guardadas.'}
-                </div>
-              ) : (
-                filteredNotes.map((note, index) => {
-                  const isActive = note.id === selectedNoteId
-                  const isDraftOnly = !notes.some((saved) => saved.id === note.id)
-
-                  return (
-                    <button
-                      key={note.id}
-                      style={{
-                        ...noteListButtonStyle,
-                        ...(isActive ? noteListButtonActiveStyle : null),
-                      }}
-                      onClick={() => handleSelectNote(note.id)}
-                    >
-                      <div style={noteButtonTitleStyle}>{getNoteButtonLabel(note, index)}</div>
-                      <div style={noteButtonMetaStyle}>
-                        {isDraftOnly ? 'Nueva' : 'Guardada'}
-                        {isActive && noteHasUnsavedChanges ? ' · con cambios' : ''}
-                      </div>
-                    </button>
-                  )
-                })
-              )}
-            </div>
-          </aside>
-
-          <section style={notesEditorStyle}>
-            {!noteDraft ? (
-              <div style={emptyStateStyle}>
-                Seleccioná una anotación o creá una nueva para empezar.
-              </div>
-            ) : (
-              <div style={noteEditorCardStyle}>
-                <div style={noteMetaStyle}>
-                  {selectedNoteExistsInSavedList ? 'Anotación guardada' : 'Nueva anotación'}
-                  {noteHasUnsavedChanges ? ' · cambios sin guardar' : ' · sin cambios pendientes'}
-                </div>
-
-                <label style={labelStyle}>Título</label>
-                <input
-                  style={inputStyle}
-                  value={noteDraft.title}
-                  onChange={(e) =>
-                    setNoteDraft((prev) =>
-                      prev ? { ...prev, title: e.target.value } : prev,
-                    )
-                  }
-                  placeholder="Título de la anotación"
-                />
-
-                <label style={labelStyle}>Texto</label>
-                <textarea
-                  style={textareaStyle}
-                  value={noteDraft.content}
-                  onChange={(e) =>
-                    setNoteDraft((prev) =>
-                      prev ? { ...prev, content: e.target.value } : prev,
-                    )
-                  }
-                  placeholder="Escribí tu anotación privada..."
-                />
-              </div>
-            )}
-          </section>
-        </div>
-
-        <div style={statusBoxStyle}>{status}</div>
       </div>
-    </div>
+
+      {unsavedPromptAction ? (
+        <div style={modalOverlayStyle}>
+          <div style={modalCardStyle}>
+            <h2 style={modalTitleStyle}>{promptTitle}</h2>
+            <p style={modalTextStyle}>{promptDescription}</p>
+
+            <div style={modalButtonsStyle}>
+              <button
+                style={primaryButtonStyle}
+                onClick={() => void resolveUnsavedPrompt('save')}
+              >
+                {promptPrimaryLabel}
+              </button>
+
+              <button
+                style={dangerButtonStyle}
+                onClick={() => void resolveUnsavedPrompt('discard')}
+              >
+                {promptSecondaryLabel}
+              </button>
+
+              <button
+                style={ghostButtonStyle}
+                onClick={() => void resolveUnsavedPrompt('cancel')}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   )
 }
 
@@ -1196,4 +1409,46 @@ const emptySidebarStyle: CSSProperties = {
   border: '1px dashed #d7deea',
   color: '#5e6a7b',
   fontSize: 14,
+}
+
+const modalOverlayStyle: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(15, 23, 42, 0.45)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 24,
+  zIndex: 9999,
+}
+
+const modalCardStyle: CSSProperties = {
+  width: '100%',
+  maxWidth: 520,
+  background: '#fff',
+  borderRadius: 20,
+  padding: 24,
+  boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
+  border: '1px solid #e5e7eb',
+}
+
+const modalTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: 22,
+  fontWeight: 700,
+  color: '#111827',
+}
+
+const modalTextStyle: CSSProperties = {
+  marginTop: 12,
+  marginBottom: 0,
+  color: '#4b5563',
+  lineHeight: 1.6,
+}
+
+const modalButtonsStyle: CSSProperties = {
+  display: 'flex',
+  gap: 12,
+  flexWrap: 'wrap',
+  marginTop: 22,
 }

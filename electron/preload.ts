@@ -24,4 +24,20 @@ contextBridge.exposeInMainWorld('api', {
   loadNotes: () => ipcRenderer.invoke('notes:load'),
 
   saveNotes: (data: NotesData) => ipcRenderer.invoke('notes:save', data),
+
+  setUnsavedNoteChanges: (value: boolean) =>
+    ipcRenderer.invoke('app:set-unsaved-note-changes', value),
+
+  confirmCloseAfterPrompt: () => ipcRenderer.invoke('app:confirm-close-after-prompt'),
+
+  cancelCloseAfterPrompt: () => ipcRenderer.invoke('app:cancel-close-after-prompt'),
+
+  onCloseRequested: (callback: () => void) => {
+    const listener = () => callback()
+    ipcRenderer.on('app:close-requested', listener)
+
+    return () => {
+      ipcRenderer.removeListener('app:close-requested', listener)
+    }
+  },
 })
