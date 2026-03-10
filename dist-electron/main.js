@@ -1731,17 +1731,24 @@ function authPath() {
 function normalizeUsername(username) {
   return username.trim().toLowerCase();
 }
+function isAuthUser(value) {
+  if (!value || typeof value !== "object") return false;
+  const user = value;
+  return typeof user.username === "string" && typeof user.passwordHash === "string" && typeof user.vaultPasswordHash === "string";
+}
 async function readAuth() {
   try {
     const raw = await fs.readFile(authPath(), "utf8");
     const parsed = JSON.parse(raw);
     return {
-      users: Array.isArray(parsed.users) ? parsed.users.filter(
-        (u) => typeof (u == null ? void 0 : u.username) === "string" && typeof (u == null ? void 0 : u.passwordHash) === "string" && typeof (u == null ? void 0 : u.vaultPasswordHash) === "string"
-      ) : []
+      users: Array.isArray(parsed.users) ? parsed.users.filter(isAuthUser) : []
     };
-  } catch {
-    return { users: [] };
+  } catch (error) {
+    const isFileMissing = error instanceof Error && "code" in error && error.code === "ENOENT";
+    if (isFileMissing) {
+      return { users: [] };
+    }
+    throw new Error("No se pudo leer el archivo de autenticación.");
   }
 }
 async function writeAuth(data) {
@@ -1783,6 +1790,7 @@ async function login(username, password) {
   const data = await readAuth();
   const user = data.users.find((u) => u.username === normalizedUsername);
   if (!user) {
+    currentUser = null;
     return {
       ok: false,
       error: "Usuario o contraseña incorrectos."
@@ -1790,6 +1798,7 @@ async function login(username, password) {
   }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    currentUser = null;
     return {
       ok: false,
       error: "Usuario o contraseña incorrectos."
@@ -1845,35 +1854,57 @@ function getCurrentUser() {
 function vaultPath(username) {
   return path.join(app.getPath("userData"), "vaults", `${username}.vault`);
 }
-function deriveKey(password, salt) {
+function deriveKey$1(password, salt) {
   return crypto$1.scryptSync(password, salt, 32);
 }
+function isVaultEntry(value) {
+  if (!value || typeof value !== "object") return false;
+  const entry = value;
+  return typeof entry.id === "string" && typeof entry.account === "string" && typeof entry.username === "string" && typeof entry.password === "string";
+}
+function normalizeVaultData(data) {
+  if (!data || typeof data !== "object") {
+    return { entries: [] };
+  }
+  const maybeVault = data;
+  return {
+    entries: Array.isArray(maybeVault.entries) ? maybeVault.entries.filter(isVaultEntry) : []
+  };
+}
 async function loadVault(username, vaultPassword) {
-  const raw = await fs.readFile(vaultPath(username), "utf8").catch(() => null);
+  const raw = await fs.readFile(vaultPath(username), "utf8").catch((error) => {
+    const isFileMissing = error instanceof Error && "code" in error && error.code === "ENOENT";
+    if (isFileMissing) {
+      return null;
+    }
+    throw error;
+  });
   if (!raw) {
     return { entries: [] };
   }
   const parsed = JSON.parse(raw);
+  if (typeof parsed.salt !== "string" || typeof parsed.iv !== "string" || typeof parsed.tag !== "string" || typeof parsed.data !== "string") {
+    throw new Error("El archivo del vault está dañado o tiene un formato inválido.");
+  }
   const salt = Buffer.from(parsed.salt, "base64");
   const iv = Buffer.from(parsed.iv, "base64");
   const tag = Buffer.from(parsed.tag, "base64");
   const encrypted = Buffer.from(parsed.data, "base64");
-  const key = deriveKey(vaultPassword, salt);
+  const key = deriveKey$1(vaultPassword, salt);
   const decipher = crypto$1.createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
   const vault = JSON.parse(decrypted.toString("utf8"));
-  return {
-    entries: Array.isArray(vault.entries) ? vault.entries : []
-  };
+  return normalizeVaultData(vault);
 }
 async function saveVault(username, vaultPassword, data) {
+  const normalized = normalizeVaultData(data);
   const salt = crypto$1.randomBytes(16);
   const iv = crypto$1.randomBytes(12);
-  const key = deriveKey(vaultPassword, salt);
+  const key = deriveKey$1(vaultPassword, salt);
   const cipher = crypto$1.createCipheriv("aes-256-gcm", key, iv);
   const encrypted = Buffer.concat([
-    cipher.update(JSON.stringify(data), "utf8"),
+    cipher.update(JSON.stringify(normalized), "utf8"),
     cipher.final()
   ]);
   const tag = cipher.getAuthTag();
@@ -1884,6 +1915,73 @@ async function saveVault(username, vaultPassword, data) {
     data: encrypted.toString("base64")
   };
   const file = vaultPath(username);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf8");
+}
+function notesPath(username) {
+  return path.join(app.getPath("userData"), "vaults", `${username}.notes.vault`);
+}
+function deriveKey(password, salt) {
+  return crypto$1.scryptSync(password, salt, 32);
+}
+function isNoteEntry(value) {
+  if (!value || typeof value !== "object") return false;
+  const note = value;
+  return typeof note.id === "string" && typeof note.title === "string" && typeof note.content === "string";
+}
+function normalizeNotesData(data) {
+  if (!data || typeof data !== "object") {
+    return { notes: [] };
+  }
+  const maybeNotes = data;
+  return {
+    notes: Array.isArray(maybeNotes.notes) ? maybeNotes.notes.filter(isNoteEntry) : []
+  };
+}
+async function loadNotesVault(username, vaultPassword) {
+  const raw = await fs.readFile(notesPath(username), "utf8").catch((error) => {
+    const isFileMissing = error instanceof Error && "code" in error && error.code === "ENOENT";
+    if (isFileMissing) {
+      return null;
+    }
+    throw error;
+  });
+  if (!raw) {
+    return { notes: [] };
+  }
+  const parsed = JSON.parse(raw);
+  if (typeof parsed.salt !== "string" || typeof parsed.iv !== "string" || typeof parsed.tag !== "string" || typeof parsed.data !== "string") {
+    throw new Error("El archivo de anotaciones está dañado o tiene un formato inválido.");
+  }
+  const salt = Buffer.from(parsed.salt, "base64");
+  const iv = Buffer.from(parsed.iv, "base64");
+  const tag = Buffer.from(parsed.tag, "base64");
+  const encrypted = Buffer.from(parsed.data, "base64");
+  const key = deriveKey(vaultPassword, salt);
+  const decipher = crypto$1.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  const notes = JSON.parse(decrypted.toString("utf8"));
+  return normalizeNotesData(notes);
+}
+async function saveNotesVault(username, vaultPassword, data) {
+  const normalized = normalizeNotesData(data);
+  const salt = crypto$1.randomBytes(16);
+  const iv = crypto$1.randomBytes(12);
+  const key = deriveKey(vaultPassword, salt);
+  const cipher = crypto$1.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(JSON.stringify(normalized), "utf8"),
+    cipher.final()
+  ]);
+  const tag = cipher.getAuthTag();
+  const payload = {
+    salt: salt.toString("base64"),
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    data: encrypted.toString("base64")
+  };
+  const file = notesPath(username);
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, JSON.stringify(payload, null, 2), "utf8");
 }
@@ -1905,13 +2003,16 @@ function createWindow() {
     }
   });
   if (isDev) {
-    win.loadURL("http://localhost:5173");
+    void win.loadURL("http://localhost:5173");
   } else {
-    win.loadFile(path.join(__dirname$1, "../dist/index.html"));
+    void win.loadFile(path.join(__dirname$1, "../dist/index.html"));
   }
 }
 function vaultFilePath(username) {
   return path.join(app.getPath("userData"), "vaults", `${username}.vault`);
+}
+function notesFilePath(username) {
+  return path.join(app.getPath("userData"), "vaults", `${username}.notes.vault`);
 }
 ipcMain.handle(
   "auth:create",
@@ -1976,6 +2077,8 @@ ipcMain.handle("auth:deleteCurrentUser", async () => {
     const result = await deleteCurrentUser();
     const vaultPath2 = vaultFilePath(current);
     await fs.rm(vaultPath2, { force: true });
+    const notesPath2 = notesFilePath(current);
+    await fs.rm(notesPath2, { force: true });
     unlockedVaultPassword = null;
     return result;
   } catch (error) {
@@ -2023,6 +2126,47 @@ ipcMain.handle("vault:save", async (_event, data) => {
     return {
       ok: false,
       error: error instanceof Error ? error.message : "No se pudo guardar el vault."
+    };
+  }
+});
+ipcMain.handle("notes:load", async () => {
+  const user = getCurrentUser();
+  if (!user || !unlockedVaultPassword) {
+    return {
+      ok: false,
+      error: "Anotaciones bloqueadas o sesión inexistente.",
+      notes: []
+    };
+  }
+  try {
+    const notes = await loadNotesVault(user, unlockedVaultPassword);
+    return {
+      ok: true,
+      notes: notes.notes
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "No se pudieron cargar las anotaciones.",
+      notes: []
+    };
+  }
+});
+ipcMain.handle("notes:save", async (_event, data) => {
+  const user = getCurrentUser();
+  if (!user || !unlockedVaultPassword) {
+    return {
+      ok: false,
+      error: "Anotaciones bloqueadas o sesión inexistente."
+    };
+  }
+  try {
+    await saveNotesVault(user, unlockedVaultPassword, data);
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "No se pudieron guardar las anotaciones."
     };
   }
 });

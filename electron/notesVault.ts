@@ -1,67 +1,63 @@
-//electron/vault.ts
+//electron/notesVault.ts
 import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import crypto from 'node:crypto'
 
-export type VaultEntry = {
+export type NoteEntry = {
     id: string
-    account: string
-    username: string
-    password: string
+    title: string
+    content: string
 }
 
-export type VaultData = {
-    entries: VaultEntry[]
+export type NotesData = {
+    notes: NoteEntry[]
 }
 
-type VaultFile = {
+type NotesFile = {
     salt: string
     iv: string
     tag: string
     data: string
 }
 
-function vaultPath(username: string) {
-    return path.join(app.getPath('userData'), 'vaults', `${username}.vault`)
+function notesPath(username: string) {
+    return path.join(app.getPath('userData'), 'vaults', `${username}.notes.vault`)
 }
 
 function deriveKey(password: string, salt: Buffer) {
     return crypto.scryptSync(password, salt, 32)
 }
 
-function isVaultEntry(value: unknown): value is VaultEntry {
+function isNoteEntry(value: unknown): value is NoteEntry {
     if (!value || typeof value !== 'object') return false
 
-    const entry = value as VaultEntry
+    const note = value as NoteEntry
 
     return (
-        typeof entry.id === 'string' &&
-        typeof entry.account === 'string' &&
-        typeof entry.username === 'string' &&
-        typeof entry.password === 'string'
+        typeof note.id === 'string' &&
+        typeof note.title === 'string' &&
+        typeof note.content === 'string'
     )
 }
 
-function normalizeVaultData(data: unknown): VaultData {
+function normalizeNotesData(data: unknown): NotesData {
     if (!data || typeof data !== 'object') {
-        return { entries: [] }
+        return { notes: [] }
     }
 
-    const maybeVault = data as Partial<VaultData>
+    const maybeNotes = data as Partial<NotesData>
 
     return {
-        entries: Array.isArray(maybeVault.entries)
-            ? maybeVault.entries.filter(isVaultEntry)
-            : [],
+        notes: Array.isArray(maybeNotes.notes) ? maybeNotes.notes.filter(isNoteEntry) : [],
     }
 }
 
-export async function loadVault(
+export async function loadNotesVault(
     username: string,
     vaultPassword: string,
-): Promise<VaultData> {
-    const raw = await fs.readFile(vaultPath(username), 'utf8').catch((error) => {
+): Promise<NotesData> {
+    const raw = await fs.readFile(notesPath(username), 'utf8').catch((error) => {
         const isFileMissing =
             error instanceof Error &&
             'code' in error &&
@@ -75,10 +71,10 @@ export async function loadVault(
     })
 
     if (!raw) {
-        return { entries: [] }
+        return { notes: [] }
     }
 
-    const parsed = JSON.parse(raw) as Partial<VaultFile>
+    const parsed = JSON.parse(raw) as Partial<NotesFile>
 
     if (
         typeof parsed.salt !== 'string' ||
@@ -86,7 +82,7 @@ export async function loadVault(
         typeof parsed.tag !== 'string' ||
         typeof parsed.data !== 'string'
     ) {
-        throw new Error('El archivo del vault está dañado o tiene un formato inválido.')
+        throw new Error('El archivo de anotaciones está dañado o tiene un formato inválido.')
     }
 
     const salt = Buffer.from(parsed.salt, 'base64')
@@ -100,13 +96,17 @@ export async function loadVault(
     decipher.setAuthTag(tag)
 
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()])
-    const vault = JSON.parse(decrypted.toString('utf8'))
+    const notes = JSON.parse(decrypted.toString('utf8'))
 
-    return normalizeVaultData(vault)
+    return normalizeNotesData(notes)
 }
 
-export async function saveVault(username: string, vaultPassword: string, data: VaultData) {
-    const normalized = normalizeVaultData(data)
+export async function saveNotesVault(
+    username: string,
+    vaultPassword: string,
+    data: NotesData,
+) {
+    const normalized = normalizeNotesData(data)
 
     const salt = crypto.randomBytes(16)
     const iv = crypto.randomBytes(12)
@@ -119,14 +119,14 @@ export async function saveVault(username: string, vaultPassword: string, data: V
     ])
     const tag = cipher.getAuthTag()
 
-    const payload: VaultFile = {
+    const payload: NotesFile = {
         salt: salt.toString('base64'),
         iv: iv.toString('base64'),
         tag: tag.toString('base64'),
         data: encrypted.toString('base64'),
     }
 
-    const file = vaultPath(username)
+    const file = notesPath(username)
 
     await fs.mkdir(path.dirname(file), { recursive: true })
     await fs.writeFile(file, JSON.stringify(payload, null, 2), 'utf8')

@@ -7,5 +7,7 @@ electron.contextBridge.exposeInMainWorld("api", {
   logout: () => electron.ipcRenderer.invoke("auth:logout"),
   deleteCurrentUser: () => electron.ipcRenderer.invoke("auth:deleteCurrentUser"),
   loadVault: () => electron.ipcRenderer.invoke("vault:load"),
-  saveVault: (data) => electron.ipcRenderer.invoke("vault:save", data)
+  saveVault: (data) => electron.ipcRenderer.invoke("vault:save", data),
+  loadNotes: () => electron.ipcRenderer.invoke("notes:load"),
+  saveNotes: (data) => electron.ipcRenderer.invoke("notes:save", data)
 });

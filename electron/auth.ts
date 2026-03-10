@@ -1,3 +1,4 @@
+//electron/auth.ts
 import { app } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs/promises'
@@ -23,23 +24,37 @@ function normalizeUsername(username: string) {
     return username.trim().toLowerCase()
 }
 
+function isAuthUser(value: unknown): value is AuthUser {
+    if (!value || typeof value !== 'object') return false
+
+    const user = value as AuthUser
+
+    return (
+        typeof user.username === 'string' &&
+        typeof user.passwordHash === 'string' &&
+        typeof user.vaultPasswordHash === 'string'
+    )
+}
+
 async function readAuth(): Promise<AuthFile> {
     try {
         const raw = await fs.readFile(authPath(), 'utf8')
         const parsed = JSON.parse(raw) as Partial<AuthFile>
 
         return {
-            users: Array.isArray(parsed.users)
-                ? parsed.users.filter(
-                    (u): u is AuthUser =>
-                        typeof u?.username === 'string' &&
-                        typeof u?.passwordHash === 'string' &&
-                        typeof u?.vaultPasswordHash === 'string',
-                )
-                : [],
+            users: Array.isArray(parsed.users) ? parsed.users.filter(isAuthUser) : [],
         }
-    } catch {
-        return { users: [] }
+    } catch (error) {
+        const isFileMissing =
+            error instanceof Error &&
+            'code' in error &&
+            (error as NodeJS.ErrnoException).code === 'ENOENT'
+
+        if (isFileMissing) {
+            return { users: [] }
+        }
+
+        throw new Error('No se pudo leer el archivo de autenticación.')
     }
 }
 
@@ -99,6 +114,7 @@ export async function login(username: string, password: string) {
     const user = data.users.find((u) => u.username === normalizedUsername)
 
     if (!user) {
+        currentUser = null
         return {
             ok: false,
             error: 'Usuario o contraseña incorrectos.',
@@ -108,6 +124,7 @@ export async function login(username: string, password: string) {
     const valid = await bcrypt.compare(password, user.passwordHash)
 
     if (!valid) {
+        currentUser = null
         return {
             ok: false,
             error: 'Usuario o contraseña incorrectos.',

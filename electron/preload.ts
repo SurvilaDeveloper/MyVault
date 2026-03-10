@@ -1,5 +1,7 @@
+//electron/preload.ts
 import { contextBridge, ipcRenderer } from 'electron'
 import type { VaultData } from './vault'
+import type { NotesData } from './notesVault'
 
 contextBridge.exposeInMainWorld('api', {
   createUser: (username: string, password: string, vaultPassword: string) =>
@@ -18,4 +20,8 @@ contextBridge.exposeInMainWorld('api', {
   loadVault: () => ipcRenderer.invoke('vault:load'),
 
   saveVault: (data: VaultData) => ipcRenderer.invoke('vault:save', data),
+
+  loadNotes: () => ipcRenderer.invoke('notes:load'),
+
+  saveNotes: (data: NotesData) => ipcRenderer.invoke('notes:save', data),
 })

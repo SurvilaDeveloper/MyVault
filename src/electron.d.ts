@@ -1,3 +1,4 @@
+//src/electron.d.ts
 export { }
 
 declare global {
@@ -10,6 +11,16 @@ declare global {
 
     type VaultData = {
         entries: VaultEntry[]
+    }
+
+    type NoteEntry = {
+        id: string
+        title: string
+        content: string
+    }
+
+    type NotesData = {
+        notes: NoteEntry[]
     }
 
     interface AuthResult {
@@ -35,6 +46,12 @@ declare global {
         entries: VaultEntry[]
     }
 
+    interface NotesLoadResult {
+        ok: boolean
+        error?: string
+        notes: NoteEntry[]
+    }
+
     interface Window {
         api: {
             createUser: (
@@ -54,6 +71,10 @@ declare global {
             loadVault: () => Promise<VaultLoadResult>
 
             saveVault: (data: VaultData) => Promise<BasicResult>
+
+            loadNotes: () => Promise<NotesLoadResult>
+
+            saveNotes: (data: NotesData) => Promise<BasicResult>
         }
     }
 }

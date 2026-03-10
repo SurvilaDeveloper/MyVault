@@ -1,12 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+//src/App.tsx
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 
-type View = 'auth' | 'unlock' | 'vault'
+type View = 'auth' | 'unlock' | 'home' | 'passwords' | 'notes'
 
 type Entry = {
   id: string
   account: string
   username: string
   password: string
+}
+
+type Note = {
+  id: string
+  title: string
+  content: string
 }
 
 export default function App() {
@@ -24,12 +31,15 @@ export default function App() {
   const [unlockPassword, setUnlockPassword] = useState('')
 
   const [entries, setEntries] = useState<Entry[]>([])
+  const [notes, setNotes] = useState<Note[]>([])
+
   const [status, setStatus] = useState('Listo')
-  const [saving, setSaving] = useState(false)
+  const [savingPasswords, setSavingPasswords] = useState(false)
+  const [savingNotes, setSavingNotes] = useState(false)
   const [showPasswords, setShowPasswords] = useState(false)
 
   useEffect(() => {
-    if (view !== 'vault') return
+    if (view !== 'passwords') return
 
     void (async () => {
       const result = await window.api.loadVault()
@@ -40,11 +50,28 @@ export default function App() {
       }
 
       setEntries(result.entries)
-      setStatus('Vault cargado.')
+      setStatus('Contraseñas cargadas.')
+    })()
+  }, [view])
+
+  useEffect(() => {
+    if (view !== 'notes') return
+
+    void (async () => {
+      const result = await window.api.loadNotes()
+
+      if (!result.ok) {
+        setStatus(result.error ?? 'No se pudieron cargar las anotaciones.')
+        return
+      }
+
+      setNotes(result.notes)
+      setStatus('Anotaciones cargadas.')
     })()
   }, [view])
 
   const totalEntries = useMemo(() => entries.length, [entries])
+  const totalNotes = useMemo(() => notes.length, [notes])
 
   async function handleLogin() {
     setStatus('Iniciando sesión...')
@@ -105,30 +132,47 @@ export default function App() {
     }
 
     setUnlockPassword('')
-    setView('vault')
+    setView('home')
     setStatus('Vault desbloqueado.')
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setStatus('Guardando vault...')
+  async function handleSavePasswords() {
+    setSavingPasswords(true)
+    setStatus('Guardando contraseñas...')
 
     const result = await window.api.saveVault({ entries })
 
-    setSaving(false)
+    setSavingPasswords(false)
 
     if (!result.ok) {
       setStatus(result.error ?? 'No se pudo guardar.')
       return
     }
 
-    setStatus('Vault guardado.')
+    setStatus('Contraseñas guardadas.')
+  }
+
+  async function handleSaveNotes() {
+    setSavingNotes(true)
+    setStatus('Guardando anotaciones cifradas...')
+
+    const result = await window.api.saveNotes({ notes })
+
+    setSavingNotes(false)
+
+    if (!result.ok) {
+      setStatus(result.error ?? 'No se pudieron guardar las anotaciones.')
+      return
+    }
+
+    setStatus('Anotaciones guardadas.')
   }
 
   async function handleLogout() {
     await window.api.logout()
     setView('auth')
     setEntries([])
+    setNotes([])
     setLoginUsername('')
     setLoginPassword('')
     setUnlockPassword('')
@@ -137,7 +181,7 @@ export default function App() {
 
   async function handleDeleteCurrentUser() {
     const confirmed = window.confirm(
-      '¿Seguro que querés eliminar este usuario? También se eliminará su vault cifrado y no se podrá recuperar.',
+      '¿Seguro que querés eliminar este usuario? También se eliminarán su vault cifrado y sus anotaciones cifradas, y no se podrán recuperar.',
     )
 
     if (!confirmed) return
@@ -153,6 +197,7 @@ export default function App() {
 
     setView('auth')
     setEntries([])
+    setNotes([])
     setLoginUsername('')
     setLoginPassword('')
     setUnlockPassword('')
@@ -181,6 +226,25 @@ export default function App() {
     ])
   }
 
+  function updateNote(index: number, patch: Partial<Note>) {
+    setNotes((prev) => prev.map((note, i) => (i === index ? { ...note, ...patch } : note)))
+  }
+
+  function removeNote(index: number) {
+    setNotes((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function addNote() {
+    setNotes((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        title: '',
+        content: '',
+      },
+    ])
+  }
+
   if (view === 'auth') {
     return (
       <div style={pageStyle}>
@@ -188,7 +252,8 @@ export default function App() {
           <div style={heroStyle}>
             <h1 style={titleStyle}>Gestor de contraseñas</h1>
             <p style={subtitleStyle}>
-              Login para entrar a la app. Master password aparte para desbloquear el vault.
+              Login para entrar a la app. Master password aparte para desbloquear el
+              vault.
             </p>
           </div>
 
@@ -315,29 +380,169 @@ export default function App() {
     )
   }
 
+  if (view === 'home') {
+    return (
+      <div style={pageStyle}>
+        <div style={{ ...authWrapperStyle, maxWidth: 820 }}>
+          <div style={heroStyle}>
+            <h1 style={titleStyle}>Panel principal</h1>
+            <p style={subtitleStyle}>
+              Elegí qué querés abrir. Ambos módulos se guardan cifrados.
+            </p>
+          </div>
+
+          <div style={homeGridStyle}>
+            <section style={homeCardStyle}>
+              <h2 style={cardTitleStyle}>Contraseñas</h2>
+              <p style={homeCardTextStyle}>
+                Administrá cuentas, usuarios y claves guardadas en tu vault.
+              </p>
+              <button style={primaryButtonStyle} onClick={() => setView('passwords')}>
+                Contraseñas
+              </button>
+            </section>
+
+            <section style={homeCardStyle}>
+              <h2 style={cardTitleStyle}>Anotaciones</h2>
+              <p style={homeCardTextStyle}>
+                Guardá notas privadas con título y texto en un archivo cifrado separado.
+              </p>
+              <button style={secondaryButtonStyle} onClick={() => setView('notes')}>
+                Anotaciones
+              </button>
+            </section>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+            <button style={dangerButtonStyle} onClick={handleDeleteCurrentUser}>
+              Eliminar usuario
+            </button>
+            <button style={ghostButtonStyle} onClick={handleLogout}>
+              Cerrar sesión
+            </button>
+          </div>
+
+          <div style={statusBoxStyle}>{status}</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (view === 'passwords') {
+    return (
+      <div style={pageStyle}>
+        <div style={appShellStyle}>
+          <div style={toolbarStyle}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 28 }}>Vault de contraseñas</h1>
+              <div style={{ marginTop: 6, color: '#5b6472' }}>
+                {totalEntries} {totalEntries === 1 ? 'cuenta' : 'cuentas'}
+              </div>
+            </div>
+
+            <div style={toolbarButtonsStyle}>
+              <button style={ghostButtonStyle} onClick={() => setView('home')}>
+                Inicio
+              </button>
+              <button style={ghostButtonStyle} onClick={() => setShowPasswords((v) => !v)}>
+                {showPasswords ? 'Ocultar claves' : 'Mostrar claves'}
+              </button>
+              <button style={secondaryButtonStyle} onClick={addEntry}>
+                Agregar cuenta
+              </button>
+              <button
+                style={primaryButtonStyle}
+                onClick={handleSavePasswords}
+                disabled={savingPasswords}
+              >
+                {savingPasswords ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button style={dangerButtonStyle} onClick={handleLogout}>
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+
+          <div style={tableHeaderStyle}>
+            <div>Cuenta</div>
+            <div>Usuario</div>
+            <div>Contraseña</div>
+            <div>Acciones</div>
+          </div>
+
+          <div style={listStyle}>
+            {entries.length === 0 ? (
+              <div style={emptyStateStyle}>No hay cuentas todavía. Agregá la primera.</div>
+            ) : (
+              entries.map((entry, i) => (
+                <div key={entry.id} style={rowStyle4}>
+                  <input
+                    style={inputStyle}
+                    value={entry.account}
+                    onChange={(e) => updateEntry(i, { account: e.target.value })}
+                    placeholder="Ej: github"
+                  />
+
+                  <input
+                    style={inputStyle}
+                    value={entry.username}
+                    onChange={(e) => updateEntry(i, { username: e.target.value })}
+                    placeholder="Usuario o email"
+                  />
+
+                  <input
+                    style={inputStyle}
+                    type={showPasswords ? 'text' : 'password'}
+                    value={entry.password}
+                    onChange={(e) => updateEntry(i, { password: e.target.value })}
+                    placeholder="Contraseña"
+                  />
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      style={ghostButtonStyle}
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(entry.password)
+                        setStatus(`Contraseña copiada: ${entry.account || 'sin nombre'}`)
+                      }}
+                    >
+                      Copiar
+                    </button>
+                    <button style={dangerButtonStyle} onClick={() => removeEntry(i)}>
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div style={statusBoxStyle}>{status}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={pageStyle}>
       <div style={appShellStyle}>
         <div style={toolbarStyle}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 28 }}>Vault</h1>
+            <h1 style={{ margin: 0, fontSize: 28 }}>Anotaciones privadas</h1>
             <div style={{ marginTop: 6, color: '#5b6472' }}>
-              {totalEntries} {totalEntries === 1 ? 'cuenta' : 'cuentas'}
+              {totalNotes} {totalNotes === 1 ? 'anotación' : 'anotaciones'}
             </div>
           </div>
 
           <div style={toolbarButtonsStyle}>
-            <button style={ghostButtonStyle} onClick={() => setShowPasswords((v) => !v)}>
-              {showPasswords ? 'Ocultar claves' : 'Mostrar claves'}
+            <button style={ghostButtonStyle} onClick={() => setView('home')}>
+              Inicio
             </button>
-            <button style={secondaryButtonStyle} onClick={addEntry}>
-              Agregar cuenta
+            <button style={secondaryButtonStyle} onClick={addNote}>
+              Agregar anotación
             </button>
-            <button style={primaryButtonStyle} onClick={handleSave} disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
-            <button style={dangerButtonStyle} onClick={handleDeleteCurrentUser}>
-              Eliminar usuario
+            <button style={primaryButtonStyle} onClick={handleSaveNotes} disabled={savingNotes}>
+              {savingNotes ? 'Guardando...' : 'Guardar'}
             </button>
             <button style={dangerButtonStyle} onClick={handleLogout}>
               Cerrar sesión
@@ -345,58 +550,36 @@ export default function App() {
           </div>
         </div>
 
-        <div style={tableHeaderStyle}>
-          <div>Cuenta</div>
-          <div>Usuario</div>
-          <div>Contraseña</div>
-          <div>Acciones</div>
-        </div>
-
-        <div style={listStyle}>
-          {entries.length === 0 ? (
+        <div style={notesListStyle}>
+          {notes.length === 0 ? (
             <div style={emptyStateStyle}>
-              No hay cuentas todavía. Agregá la primera.
+              No hay anotaciones todavía. Agregá la primera.
             </div>
           ) : (
-            entries.map((entry, i) => (
-              <div key={entry.id} style={rowStyle4}>
+            notes.map((note, i) => (
+              <section key={note.id} style={noteCardStyle}>
+                <label style={labelStyle}>Título</label>
                 <input
                   style={inputStyle}
-                  value={entry.account}
-                  onChange={(e) => updateEntry(i, { account: e.target.value })}
-                  placeholder="Ej: github"
+                  value={note.title}
+                  onChange={(e) => updateNote(i, { title: e.target.value })}
+                  placeholder="Título de la anotación"
                 />
 
-                <input
-                  style={inputStyle}
-                  value={entry.username}
-                  onChange={(e) => updateEntry(i, { username: e.target.value })}
-                  placeholder="Usuario o email"
+                <label style={labelStyle}>Texto</label>
+                <textarea
+                  style={textareaStyle}
+                  value={note.content}
+                  onChange={(e) => updateNote(i, { content: e.target.value })}
+                  placeholder="Escribí tu anotación privada..."
                 />
 
-                <input
-                  style={inputStyle}
-                  type={showPasswords ? 'text' : 'password'}
-                  value={entry.password}
-                  onChange={(e) => updateEntry(i, { password: e.target.value })}
-                  placeholder="Contraseña"
-                />
-
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    style={ghostButtonStyle}
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(entry.password)
-                      setStatus(`Contraseña copiada: ${entry.account || 'sin nombre'}`)
-                    }}
-                  >
-                    Copiar
-                  </button>
-                  <button style={dangerButtonStyle} onClick={() => removeEntry(i)}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                  <button style={dangerButtonStyle} onClick={() => removeNote(i)}>
                     Eliminar
                   </button>
                 </div>
-              </div>
+              </section>
             ))
           )}
         </div>
@@ -407,7 +590,7 @@ export default function App() {
   )
 }
 
-const pageStyle: React.CSSProperties = {
+const pageStyle: CSSProperties = {
   minHeight: '100vh',
   background: 'linear-gradient(180deg, #f5f7fb 0%, #eef2f8 100%)',
   fontFamily: 'Inter, Arial, sans-serif',
@@ -416,34 +599,40 @@ const pageStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
-const authWrapperStyle: React.CSSProperties = {
+const authWrapperStyle: CSSProperties = {
   maxWidth: 1100,
   margin: '0 auto',
 }
 
-const heroStyle: React.CSSProperties = {
+const heroStyle: CSSProperties = {
   marginBottom: 24,
 }
 
-const titleStyle: React.CSSProperties = {
+const titleStyle: CSSProperties = {
   margin: 0,
   fontSize: 36,
   fontWeight: 700,
 }
 
-const subtitleStyle: React.CSSProperties = {
+const subtitleStyle: CSSProperties = {
   marginTop: 10,
   fontSize: 16,
   color: '#5b6472',
 }
 
-const authGridStyle: React.CSSProperties = {
+const authGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: 20,
 }
 
-const cardStyle: React.CSSProperties = {
+const homeGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 20,
+}
+
+const cardStyle: CSSProperties = {
   background: '#fff',
   borderRadius: 18,
   padding: 22,
@@ -451,13 +640,35 @@ const cardStyle: React.CSSProperties = {
   border: '1px solid #e4e9f2',
 }
 
-const cardTitleStyle: React.CSSProperties = {
+const homeCardStyle: CSSProperties = {
+  background: '#fff',
+  borderRadius: 18,
+  padding: 24,
+  boxShadow: '0 12px 30px rgba(20, 30, 50, 0.08)',
+  border: '1px solid #e4e9f2',
+}
+
+const noteCardStyle: CSSProperties = {
+  background: '#f8fafc',
+  borderRadius: 16,
+  padding: 18,
+  border: '1px solid #e6ebf3',
+}
+
+const cardTitleStyle: CSSProperties = {
   marginTop: 0,
   marginBottom: 18,
   fontSize: 22,
 }
 
-const labelStyle: React.CSSProperties = {
+const homeCardTextStyle: CSSProperties = {
+  marginTop: 0,
+  marginBottom: 16,
+  color: '#5b6472',
+  lineHeight: 1.5,
+}
+
+const labelStyle: CSSProperties = {
   display: 'block',
   marginBottom: 8,
   marginTop: 10,
@@ -466,7 +677,7 @@ const labelStyle: React.CSSProperties = {
   color: '#3b4555',
 }
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   width: '100%',
   padding: '12px 14px',
   borderRadius: 12,
@@ -477,7 +688,22 @@ const inputStyle: React.CSSProperties = {
   background: '#fff',
 }
 
-const primaryButtonStyle: React.CSSProperties = {
+const textareaStyle: CSSProperties = {
+  width: '100%',
+  minHeight: 180,
+  padding: '12px 14px',
+  borderRadius: 12,
+  border: '1px solid #ced6e3',
+  fontSize: 15,
+  boxSizing: 'border-box',
+  outline: 'none',
+  background: '#fff',
+  resize: 'vertical',
+  fontFamily: 'inherit',
+  lineHeight: 1.5,
+}
+
+const primaryButtonStyle: CSSProperties = {
   marginTop: 16,
   padding: '12px 16px',
   borderRadius: 12,
@@ -489,7 +715,7 @@ const primaryButtonStyle: React.CSSProperties = {
   color: '#fff',
 }
 
-const secondaryButtonStyle: React.CSSProperties = {
+const secondaryButtonStyle: CSSProperties = {
   marginTop: 16,
   padding: '12px 16px',
   borderRadius: 12,
@@ -501,7 +727,7 @@ const secondaryButtonStyle: React.CSSProperties = {
   color: '#1f2937',
 }
 
-const ghostButtonStyle: React.CSSProperties = {
+const ghostButtonStyle: CSSProperties = {
   padding: '10px 14px',
   borderRadius: 12,
   border: '1px solid #d7deea',
@@ -511,7 +737,7 @@ const ghostButtonStyle: React.CSSProperties = {
   color: '#243041',
 }
 
-const dangerButtonStyle: React.CSSProperties = {
+const dangerButtonStyle: CSSProperties = {
   padding: '10px 14px',
   borderRadius: 12,
   border: 'none',
@@ -521,7 +747,7 @@ const dangerButtonStyle: React.CSSProperties = {
   color: '#fff',
 }
 
-const statusBoxStyle: React.CSSProperties = {
+const statusBoxStyle: CSSProperties = {
   marginTop: 18,
   background: '#fff',
   border: '1px solid #e1e7f0',
@@ -531,7 +757,7 @@ const statusBoxStyle: React.CSSProperties = {
   boxShadow: '0 8px 20px rgba(20, 30, 50, 0.04)',
 }
 
-const appShellStyle: React.CSSProperties = {
+const appShellStyle: CSSProperties = {
   maxWidth: 1280,
   margin: '0 auto',
   background: '#fff',
@@ -541,7 +767,7 @@ const appShellStyle: React.CSSProperties = {
   border: '1px solid #e4e9f2',
 }
 
-const toolbarStyle: React.CSSProperties = {
+const toolbarStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -549,14 +775,14 @@ const toolbarStyle: React.CSSProperties = {
   marginBottom: 24,
 }
 
-const toolbarButtonsStyle: React.CSSProperties = {
+const toolbarButtonsStyle: CSSProperties = {
   display: 'flex',
   gap: 10,
   flexWrap: 'wrap',
   justifyContent: 'flex-end',
 }
 
-const tableHeaderStyle: React.CSSProperties = {
+const tableHeaderStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr 1fr 220px',
   gap: 14,
@@ -567,13 +793,19 @@ const tableHeaderStyle: React.CSSProperties = {
   padding: '0 4px',
 }
 
-const listStyle: React.CSSProperties = {
+const listStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 12,
 }
 
-const rowStyle4: React.CSSProperties = {
+const notesListStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 16,
+}
+
+const rowStyle4: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr 1fr 220px',
   gap: 14,
@@ -584,7 +816,7 @@ const rowStyle4: React.CSSProperties = {
   border: '1px solid #e6ebf3',
 }
 
-const emptyStateStyle: React.CSSProperties = {
+const emptyStateStyle: CSSProperties = {
   padding: 24,
   textAlign: 'center',
   borderRadius: 16,
