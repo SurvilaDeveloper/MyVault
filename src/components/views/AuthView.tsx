@@ -70,7 +70,7 @@ export function AuthView(props: AuthViewProps) {
                         }}
                     >
                         <img
-                            src="/icon128.png"
+                            src="./icon128.png"
                             alt="Logo de MyVault de 128 x 128"
                             style={{ width: 64, height: 64 }}
                         />

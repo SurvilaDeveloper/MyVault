@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+release
+dist-electron
+dist-renderer
 
 # Editor directories and files
 .vscode/*
@@ -32,3 +35,4 @@ coverage/
 
 # notas para desarrollo
 z.txt
+arquitectura_myvault.md

@@ -50,11 +50,11 @@ function applyNativeDarkTheme() {
 }
 
 function getHelpPath() {
-  return path.join(__dirname, '../dist/help.html')
+  return path.join(__dirname, '../dist-renderer/help.html')
 }
 
 function getAboutPath() {
-  return path.join(__dirname, '../dist/about.html')
+  return path.join(__dirname, '../dist-renderer/about.html')
 }
 
 function createWindow() {
@@ -97,7 +97,7 @@ function createWindow() {
   if (isDev) {
     void win.loadURL('http://localhost:5173')
   } else {
-    void win.loadFile(path.join(__dirname, '../dist/index.html'))
+    void win.loadFile(path.join(__dirname, '../dist-renderer/index.html'))
   }
 }
 
