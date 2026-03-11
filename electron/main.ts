@@ -1,5 +1,12 @@
 //electron/main.ts
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  nativeTheme,
+  Menu,
+  type MenuItemConstructorOptions,
+} from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs/promises'
@@ -18,6 +25,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 let win: BrowserWindow | null = null
+let helpWin: BrowserWindow | null = null
+let aboutWin: BrowserWindow | null = null
+
 let unlockedVaultPassword: string | null = null
 let hasUnsavedNoteChanges = false
 let isForceClosing = false
@@ -25,6 +35,7 @@ let closePromptPending = false
 
 const isDev = !app.isPackaged
 const WINDOW_BACKGROUND = '#020617'
+const AUX_WINDOW_BACKGROUND = '#0f172a'
 
 function getWindowIconPath() {
   if (isDev) {
@@ -36,6 +47,14 @@ function getWindowIconPath() {
 
 function applyNativeDarkTheme() {
   nativeTheme.themeSource = 'dark'
+}
+
+function getHelpPath() {
+  return path.join(__dirname, '../dist/help.html')
+}
+
+function getAboutPath() {
+  return path.join(__dirname, '../dist/about.html')
 }
 
 function createWindow() {
@@ -80,6 +99,187 @@ function createWindow() {
   } else {
     void win.loadFile(path.join(__dirname, '../dist/index.html'))
   }
+}
+
+function openHelpWindow() {
+  if (helpWin && !helpWin.isDestroyed()) {
+    helpWin.focus()
+    return
+  }
+
+  helpWin = new BrowserWindow({
+    width: 920,
+    height: 700,
+    minWidth: 760,
+    minHeight: 560,
+    title: 'Documentación - MyVault',
+    icon: getWindowIconPath(),
+    backgroundColor: AUX_WINDOW_BACKGROUND,
+    autoHideMenuBar: false,
+    resizable: true,
+    maximizable: true,
+    minimizable: true,
+    parent: win ?? undefined,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  helpWin.setBackgroundColor(AUX_WINDOW_BACKGROUND)
+
+  helpWin.on('closed', () => {
+    helpWin = null
+  })
+
+  if (isDev) {
+    void helpWin.loadURL('http://localhost:5173/help.html')
+  } else {
+    void helpWin.loadFile(getHelpPath())
+  }
+}
+
+function openAboutWindow() {
+  if (aboutWin && !aboutWin.isDestroyed()) {
+    aboutWin.focus()
+    return
+  }
+
+  aboutWin = new BrowserWindow({
+    width: 560,
+    height: 440,
+    minWidth: 500,
+    minHeight: 380,
+    title: 'Créditos - MyVault',
+    icon: getWindowIconPath(),
+    backgroundColor: AUX_WINDOW_BACKGROUND,
+    autoHideMenuBar: false,
+    maximizable: false,
+    minimizable: true,
+    resizable: false,
+    parent: win ?? undefined,
+    modal: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  aboutWin.setBackgroundColor(AUX_WINDOW_BACKGROUND)
+
+  aboutWin.on('closed', () => {
+    aboutWin = null
+  })
+
+  if (isDev) {
+    void aboutWin.loadURL('http://localhost:5173/about.html')
+  } else {
+    void aboutWin.loadFile(getAboutPath())
+  }
+}
+
+function createAppMenu() {
+  const isMac = process.platform === 'darwin'
+
+  const appSubmenu: MenuItemConstructorOptions[] = [
+    {
+      label: 'About MyVault',
+      click: () => openAboutWindow(),
+    },
+    { type: 'separator' },
+    { role: 'services' },
+    { type: 'separator' },
+    { role: 'hide' },
+    { role: 'hideOthers' },
+    { role: 'unhide' },
+    { type: 'separator' },
+    { role: 'quit' },
+  ]
+
+  const fileSubmenu: MenuItemConstructorOptions[] = isMac ? [] : [{ role: 'quit' }]
+
+  const editSubmenu: MenuItemConstructorOptions[] = isMac
+    ? [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      { role: 'pasteAndMatchStyle' },
+      { role: 'delete' },
+      { role: 'selectAll' },
+    ]
+    : [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      { role: 'selectAll' },
+    ]
+
+  const viewSubmenu: MenuItemConstructorOptions[] = [
+    { role: 'reload' },
+    { role: 'forceReload' },
+    { role: 'toggleDevTools' },
+    { type: 'separator' },
+    { role: 'resetZoom' },
+    { role: 'zoomIn' },
+    { role: 'zoomOut' },
+    { type: 'separator' },
+    { role: 'togglefullscreen' },
+  ]
+
+  const windowSubmenu: MenuItemConstructorOptions[] = isMac
+    ? [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
+    : [{ role: 'minimize' }, { role: 'close' }]
+
+  const helpSubmenu: MenuItemConstructorOptions[] = [
+    {
+      label: 'Documentación',
+      click: () => openHelpWindow(),
+    },
+    {
+      label: 'Créditos',
+      click: () => openAboutWindow(),
+    },
+  ]
+
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+        {
+          label: app.name,
+          submenu: appSubmenu,
+        },
+      ]
+      : []),
+    {
+      label: 'File',
+      submenu: fileSubmenu,
+    },
+    {
+      label: 'Edit',
+      submenu: editSubmenu,
+    },
+    {
+      label: 'View',
+      submenu: viewSubmenu,
+    },
+    {
+      label: 'Window',
+      submenu: windowSubmenu,
+    },
+    {
+      label: 'Help',
+      submenu: helpSubmenu,
+    },
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
 }
 
 function vaultFilePath(username: string) {
@@ -297,6 +497,7 @@ ipcMain.handle('app:cancel-close-after-prompt', async () => {
 app.whenReady().then(() => {
   applyNativeDarkTheme()
   createWindow()
+  createAppMenu()
 })
 
 app.on('activate', () => {
@@ -304,6 +505,7 @@ app.on('activate', () => {
 
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
+    createAppMenu()
   }
 })
 

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:;" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentación - MyVault</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0f172a;
+            --panel: #111827;
+            --soft: #1f2937;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --accent: #60a5fa;
+            --border: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, system-ui, Arial, sans-serif;
+            background: linear-gradient(180deg, #020617, #0f172a);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 32px 24px 56px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 2rem;
+        }
+
+        .lead {
+            color: var(--muted);
+            margin-bottom: 28px;
+        }
+
+        .card {
+            background: rgba(17, 24, 39, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.1rem;
+        }
+
+        ol,
+        ul {
+            padding-left: 20px;
+            line-height: 1.65;
+        }
+
+        code {
+            background: var(--soft);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2px 6px;
+            color: #bfdbfe;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="wrap">
+        <h1>Documentación de MyVault</h1>
+        <p class="lead">
+            Guía rápida para usar la aplicación de forma segura y ordenada.
+        </p>
+
+        <section class="card">
+            <h2>1. Crear una cuenta</h2>
+            <ol>
+                <li>Ingresá un nombre de usuario.</li>
+                <li>Definí tu contraseña de acceso.</li>
+                <li>Definí una contraseña para el vault.</li>
+            </ol>
+            <p class="muted">
+                La contraseña del vault protege el contenido cifrado que guardás dentro.
+            </p>
+        </section>
+
+        <section class="card">
+            <h2>2. Iniciar sesión</h2>
+            <ol>
+                <li>Entrá con tu usuario y contraseña.</li>
+                <li>Luego desbloqueá el vault con su contraseña específica.</li>
+            </ol>
+        </section>
+
+        <section class="card">
+            <h2>3. Guardar contraseñas</h2>
+            <ul>
+                <li>Agregá registros con cuenta, usuario y contraseña.</li>
+                <li>Podés mostrar una contraseña puntual cuando lo necesites.</li>
+                <li>También podés usar la vista general para mostrar todas.</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>4. Usar anotaciones</h2>
+            <ul>
+                <li>Creá notas privadas dentro del vault.</li>
+                <li>Los cambios deben guardarse antes de cerrar la app.</li>
+                <li>Si hay cambios sin guardar, MyVault te va a avisar.</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>5. Recomendaciones de seguridad</h2>
+            <ul>
+                <li>No compartas la contraseña del vault.</li>
+                <li>Usá una contraseña fuerte y única.</li>
+                <li>Recordá cerrar sesión cuando termines.</li>
+            </ul>
+        </section>
+    </main>
+</body>
+
+</html>
