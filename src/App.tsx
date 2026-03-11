@@ -270,6 +270,34 @@ export default function App() {
     setStatus('Contraseñas guardadas.')
   }
 
+  async function handleDeleteEntry(index: number) {
+    const entry = entries[index]
+    if (!entry) return
+
+    const confirmed = window.confirm(
+      `¿Seguro que querés eliminar la cuenta "${entry.account || 'sin nombre'}"? Esta acción no se puede deshacer.`,
+    )
+
+    if (!confirmed) return
+
+    const nextEntries = entries.filter((_, i) => i !== index)
+
+    setSavingPasswords(true)
+    setStatus('Eliminando cuenta...')
+
+    const result = await window.api.saveVault({ entries: nextEntries })
+
+    setSavingPasswords(false)
+
+    if (!result.ok) {
+      setStatus(result.error ?? 'No se pudo eliminar la cuenta.')
+      return
+    }
+
+    setEntries(nextEntries)
+    setStatus(`Cuenta eliminada: ${entry.account || 'sin nombre'}.`)
+  }
+
   async function handleSaveCurrentNote(): Promise<boolean> {
     if (!noteDraft) return false
 
@@ -432,11 +460,11 @@ export default function App() {
       prev.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)),
     )
   }
-
-  function removeEntry(index: number) {
-    setEntries((prev) => prev.filter((_, i) => i !== index))
-  }
-
+  /*
+    function removeEntry(index: number) {
+      setEntries((prev) => prev.filter((_, i) => i !== index))
+    }
+  */
   function addEntry() {
     setEntries((prev) => [
       ...prev,
@@ -597,21 +625,22 @@ export default function App() {
       <div style={pageStyle}>
         <div style={authWrapperStyle}>
           <div style={heroStyle}>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'start',
-              alignItems: 'center'
-            }}>
-              <img src="/icon128.png" alt="Logo de MyVault de 128 x 128" />
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                justifyContent: 'start',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <img
+                src="/icon128.png"
+                alt="Logo de MyVault de 128 x 128"
+                style={{ width: 64, height: 64 }}
+              />
               <h1 style={titleStyle}>MyVault</h1>
-
             </div>
-
-            {/*<p style={subtitleStyle}>
-              Login para entrar a la app. Master password aparte para desbloquear el
-              vault.
-            </p>*/}
           </div>
 
           <div style={authGridStyle}>
@@ -702,7 +731,7 @@ export default function App() {
   if (view === 'unlock') {
     return (
       <div style={pageStyle}>
-        <div style={{ ...authWrapperStyle, maxWidth: 520 }}>
+        <div style={{ ...authWrapperStyle, maxWidth: 500 }}>
           <div style={heroStyle}>
             <h1 style={titleStyle}>Desbloquear vault</h1>
             <p style={subtitleStyle}>
@@ -720,7 +749,7 @@ export default function App() {
               placeholder="Master password del vault"
             />
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
               <button style={primaryButtonStyle} onClick={handleUnlockVault}>
                 Desbloquear
               </button>
@@ -740,7 +769,7 @@ export default function App() {
   if (view === 'home') {
     return (
       <div style={pageStyle}>
-        <div style={{ ...authWrapperStyle, maxWidth: 820 }}>
+        <div style={{ ...authWrapperStyle, maxWidth: 780 }}>
           <div style={heroStyle}>
             <h1 style={titleStyle}>Panel principal</h1>
             <p style={subtitleStyle}>
@@ -770,7 +799,7 @@ export default function App() {
             </section>
           </div>
 
-          <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
             <button style={dangerButtonStyle} onClick={handleDeleteCurrentUser}>
               Eliminar usuario
             </button>
@@ -791,8 +820,8 @@ export default function App() {
         <div style={appShellStyle}>
           <div style={toolbarStyle}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 28 }}>Vault de contraseñas</h1>
-              <div style={{ marginTop: 6, color: '#5b6472' }}>
+              <h1 style={{ margin: 0, fontSize: 27, color: '#f8fafc' }}>Vault de contraseñas</h1>
+              <div style={{ marginTop: 5, color: '#94a3b8', fontSize: 13 }}>
                 {totalEntries} {totalEntries === 1 ? 'cuenta' : 'cuentas'}
               </div>
             </div>
@@ -801,10 +830,18 @@ export default function App() {
               <button style={ghostButtonStyle} onClick={() => setView('home')}>
                 Inicio
               </button>
-              <button style={ghostButtonStyle} onClick={() => setShowPasswords((v) => !v)}>
+              <button
+                style={ghostButtonStyle}
+                onClick={() => setShowPasswords((v) => !v)}
+                disabled={savingPasswords}
+              >
                 {showPasswords ? 'Ocultar claves' : 'Mostrar claves'}
               </button>
-              <button style={secondaryButtonStyle} onClick={addEntry}>
+              <button
+                style={secondaryButtonStyle}
+                onClick={addEntry}
+                disabled={savingPasswords}
+              >
                 Agregar cuenta
               </button>
               <button
@@ -865,7 +902,11 @@ export default function App() {
                     >
                       Copiar
                     </button>
-                    <button style={dangerButtonStyle} onClick={() => removeEntry(i)}>
+                    <button
+                      style={dangerButtonStyle}
+                      onClick={() => void handleDeleteEntry(i)}
+                      disabled={savingPasswords}
+                    >
                       Eliminar
                     </button>
                   </div>
@@ -886,8 +927,8 @@ export default function App() {
         <div style={appShellStyle}>
           <div style={toolbarStyle}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 28 }}>Anotaciones privadas</h1>
-              <div style={{ marginTop: 6, color: '#5b6472' }}>
+              <h1 style={{ margin: 0, fontSize: 27, color: '#f8fafc' }}>Anotaciones privadas</h1>
+              <div style={{ marginTop: 5, color: '#94a3b8', fontSize: 13 }}>
                 {totalNotes} {totalNotes === 1 ? 'anotación' : 'anotaciones'}
               </div>
             </div>
@@ -1062,10 +1103,11 @@ export default function App() {
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
-  background: 'linear-gradient(180deg, #f5f7fb 0%, #eef2f8 100%)',
+  background:
+    'radial-gradient(circle at top, #1e293b 0%, #0f172a 35%, #020617 100%)',
   fontFamily: 'Inter, Arial, sans-serif',
-  color: '#18202a',
-  padding: 24,
+  color: '#e5e7eb',
+  padding: 18,
   boxSizing: 'border-box',
 }
 
@@ -1075,184 +1117,194 @@ const authWrapperStyle: CSSProperties = {
 }
 
 const heroStyle: CSSProperties = {
-  marginBottom: 24,
+  marginBottom: 18,
 }
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  fontSize: 36,
+  fontSize: 35,
   fontWeight: 700,
+  color: '#f8fafc',
 }
 
 const subtitleStyle: CSSProperties = {
-  marginTop: 10,
-  fontSize: 16,
-  color: '#5b6472',
+  marginTop: 8,
+  fontSize: 15,
+  color: '#94a3b8',
 }
 
 const authGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: 20,
+  gap: 16,
 }
 
 const homeGridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
-  gap: 20,
+  gap: 16,
 }
 
 const cardStyle: CSSProperties = {
-  background: '#fff',
-  borderRadius: 18,
-  padding: 22,
-  boxShadow: '0 12px 30px rgba(20, 30, 50, 0.08)',
-  border: '1px solid #e4e9f2',
+  background: 'rgba(15, 23, 42, 0.82)',
+  borderRadius: 16,
+  padding: 18,
+  boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
+  border: '1px solid #243041',
+  backdropFilter: 'blur(10px)',
 }
 
 const homeCardStyle: CSSProperties = {
-  background: '#fff',
-  borderRadius: 18,
-  padding: 24,
-  boxShadow: '0 12px 30px rgba(20, 30, 50, 0.08)',
-  border: '1px solid #e4e9f2',
+  background: 'rgba(15, 23, 42, 0.82)',
+  borderRadius: 16,
+  padding: 20,
+  boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
+  border: '1px solid #243041',
+  backdropFilter: 'blur(10px)',
 }
 
 const cardTitleStyle: CSSProperties = {
   marginTop: 0,
-  marginBottom: 18,
-  fontSize: 22,
+  marginBottom: 14,
+  fontSize: 21,
+  color: '#f8fafc',
 }
 
 const homeCardTextStyle: CSSProperties = {
   marginTop: 0,
-  marginBottom: 16,
-  color: '#5b6472',
-  lineHeight: 1.5,
+  marginBottom: 14,
+  color: '#94a3b8',
+  lineHeight: 1.45,
+  fontSize: 14,
 }
 
 const labelStyle: CSSProperties = {
   display: 'block',
-  marginBottom: 8,
-  marginTop: 10,
-  fontSize: 14,
+  marginBottom: 6,
+  marginTop: 8,
+  fontSize: 13,
   fontWeight: 600,
-  color: '#3b4555',
+  color: '#cbd5e1',
 }
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  padding: '12px 14px',
-  borderRadius: 12,
-  border: '1px solid #ced6e3',
-  fontSize: 15,
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid #334155',
+  fontSize: 14,
   boxSizing: 'border-box',
   outline: 'none',
-  background: '#fff',
+  background: '#0f172a',
+  color: '#f8fafc',
 }
 
 const searchInputStyle: CSSProperties = {
   width: '100%',
-  padding: '10px 12px',
-  borderRadius: 12,
-  border: '1px solid #ced6e3',
-  fontSize: 14,
+  padding: '9px 11px',
+  borderRadius: 10,
+  border: '1px solid #334155',
+  fontSize: 13,
   boxSizing: 'border-box',
   outline: 'none',
-  background: '#fff',
-  marginBottom: 14,
+  background: '#0f172a',
+  color: '#f8fafc',
+  marginBottom: 12,
 }
 
 const textareaStyle: CSSProperties = {
   width: '100%',
-  minHeight: 320,
-  padding: '12px 14px',
-  borderRadius: 12,
-  border: '1px solid #ced6e3',
-  fontSize: 15,
+  minHeight: 280,
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid #334155',
+  fontSize: 14,
   boxSizing: 'border-box',
   outline: 'none',
-  background: '#fff',
+  background: '#0f172a',
+  color: '#f8fafc',
   resize: 'vertical',
   fontFamily: 'inherit',
-  lineHeight: 1.5,
+  lineHeight: 1.45,
 }
 
 const primaryButtonStyle: CSSProperties = {
-  marginTop: 16,
-  padding: '12px 16px',
-  borderRadius: 12,
+  marginTop: 14,
+  padding: '10px 14px',
+  borderRadius: 10,
   border: 'none',
   cursor: 'pointer',
-  fontSize: 15,
+  fontSize: 14,
   fontWeight: 600,
-  background: '#1f6feb',
+  background: '#2563eb',
   color: '#fff',
 }
 
 const secondaryButtonStyle: CSSProperties = {
-  marginTop: 16,
-  padding: '12px 16px',
-  borderRadius: 12,
-  border: '1px solid #cfd7e6',
+  marginTop: 14,
+  padding: '10px 14px',
+  borderRadius: 10,
+  border: '1px solid #334155',
   cursor: 'pointer',
-  fontSize: 15,
+  fontSize: 14,
   fontWeight: 600,
-  background: '#fff',
-  color: '#1f2937',
+  background: '#111827',
+  color: '#e5e7eb',
 }
 
 const ghostButtonStyle: CSSProperties = {
-  padding: '10px 14px',
-  borderRadius: 12,
-  border: '1px solid #d7deea',
+  padding: '9px 13px',
+  borderRadius: 10,
+  border: '1px solid #334155',
   cursor: 'pointer',
-  fontSize: 14,
-  background: '#fff',
-  color: '#243041',
+  fontSize: 13,
+  background: '#0f172a',
+  color: '#e2e8f0',
 }
 
 const dangerButtonStyle: CSSProperties = {
-  padding: '10px 14px',
-  borderRadius: 12,
+  padding: '9px 13px',
+  borderRadius: 10,
   border: 'none',
   cursor: 'pointer',
-  fontSize: 14,
-  background: '#d92d20',
+  fontSize: 13,
+  background: '#dc2626',
   color: '#fff',
 }
 
 const statusBoxStyle: CSSProperties = {
-  marginTop: 18,
-  background: '#fff',
-  border: '1px solid #e1e7f0',
-  borderRadius: 14,
-  padding: '14px 16px',
-  color: '#445065',
-  boxShadow: '0 8px 20px rgba(20, 30, 50, 0.04)',
+  marginTop: 14,
+  background: 'rgba(15, 23, 42, 0.82)',
+  border: '1px solid #243041',
+  borderRadius: 12,
+  padding: '12px 14px',
+  color: '#cbd5e1',
+  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
+  fontSize: 13,
 }
 
 const appShellStyle: CSSProperties = {
   maxWidth: 1280,
   margin: '0 auto',
-  background: '#fff',
-  borderRadius: 20,
-  padding: 24,
-  boxShadow: '0 14px 36px rgba(20, 30, 50, 0.08)',
-  border: '1px solid #e4e9f2',
+  background: 'rgba(15, 23, 42, 0.86)',
+  borderRadius: 18,
+  padding: 18,
+  boxShadow: '0 22px 50px rgba(0, 0, 0, 0.35)',
+  border: '1px solid #243041',
+  backdropFilter: 'blur(10px)',
 }
 
 const toolbarStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  gap: 16,
-  marginBottom: 24,
+  gap: 14,
+  marginBottom: 18,
 }
 
 const toolbarButtonsStyle: CSSProperties = {
   display: 'flex',
-  gap: 10,
+  gap: 8,
   flexWrap: 'wrap',
   justifyContent: 'flex-end',
 }
@@ -1260,128 +1312,129 @@ const toolbarButtonsStyle: CSSProperties = {
 const tableHeaderStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr 1fr 220px',
-  gap: 14,
-  fontSize: 13,
+  gap: 12,
+  fontSize: 12,
   fontWeight: 700,
-  color: '#576173',
-  marginBottom: 10,
+  color: '#94a3b8',
+  marginBottom: 8,
   padding: '0 4px',
 }
 
 const listStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
+  gap: 10,
 }
 
 const rowStyle4: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr 1fr 220px',
-  gap: 14,
+  gap: 12,
   alignItems: 'center',
-  padding: 12,
-  borderRadius: 16,
-  background: '#f8fafc',
-  border: '1px solid #e6ebf3',
+  padding: 10,
+  borderRadius: 14,
+  background: '#111827',
+  border: '1px solid #243041',
 }
 
 const emptyStateStyle: CSSProperties = {
-  padding: 24,
+  padding: 18,
   textAlign: 'center',
-  borderRadius: 16,
-  background: '#f8fafc',
-  border: '1px dashed #cfd8e5',
-  color: '#5e6a7b',
+  borderRadius: 14,
+  background: '#0f172a',
+  border: '1px dashed #334155',
+  color: '#94a3b8',
+  fontSize: 13,
 }
 
 const notesLayoutStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '320px 1fr',
-  gap: 20,
+  gridTemplateColumns: '300px 1fr',
+  gap: 16,
   alignItems: 'start',
 }
 
 const notesSidebarStyle: CSSProperties = {
-  background: '#f8fafc',
-  border: '1px solid #e6ebf3',
-  borderRadius: 18,
-  padding: 16,
-  minHeight: 460,
+  background: '#111827',
+  border: '1px solid #243041',
+  borderRadius: 16,
+  padding: 14,
+  minHeight: 420,
 }
 
 const notesSidebarHeaderRowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 10,
-  marginBottom: 12,
+  gap: 8,
+  marginBottom: 10,
 }
 
 const notesSidebarHeaderStyle: CSSProperties = {
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 700,
-  color: '#435066',
+  color: '#cbd5e1',
 }
 
 const unsavedBadgeStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 700,
-  color: '#9a6700',
-  background: '#fff4d6',
-  border: '1px solid #f0d48a',
+  color: '#fbbf24',
+  background: 'rgba(251, 191, 36, 0.14)',
+  border: '1px solid rgba(251, 191, 36, 0.35)',
   borderRadius: 999,
-  padding: '4px 8px',
+  padding: '3px 7px',
   whiteSpace: 'nowrap',
 }
 
 const savedBadgeStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 700,
-  color: '#137333',
-  background: '#e7f6ec',
-  border: '1px solid #b7e1c3',
+  color: '#4ade80',
+  background: 'rgba(74, 222, 128, 0.12)',
+  border: '1px solid rgba(74, 222, 128, 0.28)',
   borderRadius: 999,
-  padding: '4px 8px',
+  padding: '3px 7px',
   whiteSpace: 'nowrap',
 }
 
 const notesButtonsListStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 10,
+  gap: 8,
 }
 
 const noteListButtonStyle: CSSProperties = {
   width: '100%',
   textAlign: 'left',
-  padding: '12px 14px',
-  borderRadius: 12,
-  border: '1px solid #d9e2ef',
-  background: '#fff',
-  color: '#1f2937',
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid #334155',
+  background: '#0f172a',
+  color: '#e5e7eb',
   cursor: 'pointer',
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 600,
 }
 
 const noteListButtonActiveStyle: CSSProperties = {
-  border: '1px solid #1f6feb',
-  background: '#eaf2ff',
-  color: '#114aa3',
+  border: '1px solid #3b82f6',
+  background: 'rgba(59, 130, 246, 0.14)',
+  color: '#bfdbfe',
 }
 
 const noteButtonTitleStyle: CSSProperties = {
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 700,
-  lineHeight: 1.35,
-  marginBottom: 4,
+  lineHeight: 1.3,
+  marginBottom: 3,
   wordBreak: 'break-word',
 }
 
 const noteButtonMetaStyle: CSSProperties = {
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 500,
-  color: '#667085',
+  color: '#94a3b8',
 }
 
 const notesEditorStyle: CSSProperties = {
@@ -1389,66 +1442,67 @@ const notesEditorStyle: CSSProperties = {
 }
 
 const noteEditorCardStyle: CSSProperties = {
-  background: '#f8fafc',
-  border: '1px solid #e6ebf3',
-  borderRadius: 18,
-  padding: 18,
+  background: '#111827',
+  border: '1px solid #243041',
+  borderRadius: 16,
+  padding: 14,
 }
 
 const noteMetaStyle: CSSProperties = {
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 700,
-  color: '#5b6472',
-  marginBottom: 8,
+  color: '#94a3b8',
+  marginBottom: 6,
 }
 
 const emptySidebarStyle: CSSProperties = {
-  padding: 14,
-  borderRadius: 12,
-  background: '#fff',
-  border: '1px dashed #d7deea',
-  color: '#5e6a7b',
-  fontSize: 14,
+  padding: 12,
+  borderRadius: 10,
+  background: '#0f172a',
+  border: '1px dashed #334155',
+  color: '#94a3b8',
+  fontSize: 13,
 }
 
 const modalOverlayStyle: CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(15, 23, 42, 0.45)',
+  background: 'rgba(2, 6, 23, 0.68)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: 24,
+  padding: 18,
   zIndex: 9999,
 }
 
 const modalCardStyle: CSSProperties = {
   width: '100%',
-  maxWidth: 520,
-  background: '#fff',
-  borderRadius: 20,
-  padding: 24,
-  boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
-  border: '1px solid #e5e7eb',
+  maxWidth: 500,
+  background: '#0f172a',
+  borderRadius: 18,
+  padding: 20,
+  boxShadow: '0 24px 60px rgba(0, 0, 0, 0.5)',
+  border: '1px solid #243041',
 }
 
 const modalTitleStyle: CSSProperties = {
   margin: 0,
-  fontSize: 22,
+  fontSize: 21,
   fontWeight: 700,
-  color: '#111827',
+  color: '#f8fafc',
 }
 
 const modalTextStyle: CSSProperties = {
-  marginTop: 12,
+  marginTop: 10,
   marginBottom: 0,
-  color: '#4b5563',
-  lineHeight: 1.6,
+  color: '#cbd5e1',
+  lineHeight: 1.5,
+  fontSize: 14,
 }
 
 const modalButtonsStyle: CSSProperties = {
   display: 'flex',
-  gap: 12,
+  gap: 10,
   flexWrap: 'wrap',
-  marginTop: 22,
+  marginTop: 18,
 }

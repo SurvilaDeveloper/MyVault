@@ -1,5 +1,5 @@
 //electron/main.ts
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs/promises'
@@ -24,6 +24,7 @@ let isForceClosing = false
 let closePromptPending = false
 
 const isDev = !app.isPackaged
+const WINDOW_BACKGROUND = '#020617'
 
 function getWindowIconPath() {
   if (isDev) {
@@ -33,23 +34,33 @@ function getWindowIconPath() {
   return path.join(process.resourcesPath, 'public', 'myvault.png')
 }
 
+function applyNativeDarkTheme() {
+  nativeTheme.themeSource = 'dark'
+}
+
 function createWindow() {
   isForceClosing = false
   closePromptPending = false
 
+  applyNativeDarkTheme()
+
   win = new BrowserWindow({
     width: 1180,
-    height: 780,
+    height: 730,
     minWidth: 940,
     minHeight: 680,
     title: 'MyVault',
     icon: getWindowIconPath(),
+    backgroundColor: WINDOW_BACKGROUND,
+    autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
+
+  win.setBackgroundColor(WINDOW_BACKGROUND)
 
   win.on('close', (event) => {
     if (isForceClosing) return
@@ -283,10 +294,17 @@ ipcMain.handle('app:cancel-close-after-prompt', async () => {
   return { ok: true }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  applyNativeDarkTheme()
+  createWindow()
+})
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  applyNativeDarkTheme()
+
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  }
 })
 
 app.on('window-all-closed', () => {
