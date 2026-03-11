@@ -1,26 +1,12 @@
 //src/App.tsx
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-
-type View = 'auth' | 'unlock' | 'home' | 'passwords' | 'notes'
-
-type Entry = {
-  id: string
-  account: string
-  username: string
-  password: string
-}
-
-type Note = {
-  id: string
-  title: string
-  content: string
-}
-
-type UnsavedPromptAction =
-  | 'go-home'
-  | 'close-app'
-  | 'switch-note'
-  | 'new-note'
+import { useEffect, useMemo, useState } from 'react'
+import { AuthView } from './components/views/AuthView'
+import { HomeView } from './components/views/HomeView'
+import { NotesView } from './components/views/NotesView'
+import { PasswordsView } from './components/views/PasswordsView'
+import { UnlockView } from './components/views/UnlockView'
+import { UnsavedChangesModal } from './components/UnsavedChangesModal'
+import type { Entry, Note, UnsavedPromptAction, View } from './types/app-types'
 
 function createEmptyNote(): Note {
   return {
@@ -62,6 +48,7 @@ export default function App() {
   const [savingPasswords, setSavingPasswords] = useState(false)
   const [savingNotes, setSavingNotes] = useState(false)
   const [showPasswords, setShowPasswords] = useState(false)
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({})
 
   const [unsavedPromptAction, setUnsavedPromptAction] =
     useState<UnsavedPromptAction | null>(null)
@@ -79,6 +66,7 @@ export default function App() {
       }
 
       setEntries(result.entries)
+      setVisiblePasswords({})
       setStatus('Contraseñas cargadas.')
     })()
   }, [view])
@@ -270,6 +258,13 @@ export default function App() {
     setStatus('Contraseñas guardadas.')
   }
 
+  function toggleEntryPassword(entryId: string) {
+    setVisiblePasswords((prev) => ({
+      ...prev,
+      [entryId]: !prev[entryId],
+    }))
+  }
+
   async function handleDeleteEntry(index: number) {
     const entry = entries[index]
     if (!entry) return
@@ -295,7 +290,17 @@ export default function App() {
     }
 
     setEntries(nextEntries)
+    setVisiblePasswords((prev) => {
+      const next = { ...prev }
+      delete next[entry.id]
+      return next
+    })
     setStatus(`Cuenta eliminada: ${entry.account || 'sin nombre'}.`)
+  }
+
+  async function handleCopyPassword(entry: Entry) {
+    await navigator.clipboard.writeText(entry.password)
+    setStatus(`Contraseña copiada: ${entry.account || 'sin nombre'}`)
   }
 
   async function handleSaveCurrentNote(): Promise<boolean> {
@@ -414,6 +419,8 @@ export default function App() {
     setLoginUsername('')
     setLoginPassword('')
     setUnlockPassword('')
+    setShowPasswords(false)
+    setVisiblePasswords({})
     setStatus('Sesión cerrada.')
   }
 
@@ -452,6 +459,8 @@ export default function App() {
     setLoginUsername('')
     setLoginPassword('')
     setUnlockPassword('')
+    setShowPasswords(false)
+    setVisiblePasswords({})
     setStatus(`Usuario eliminado: ${result.username ?? 'desconocido'}.`)
   }
 
@@ -460,11 +469,7 @@ export default function App() {
       prev.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)),
     )
   }
-  /*
-    function removeEntry(index: number) {
-      setEntries((prev) => prev.filter((_, i) => i !== index))
-    }
-  */
+
   function addEntry() {
     setEntries((prev) => [
       ...prev,
@@ -622,887 +627,109 @@ export default function App() {
 
   if (view === 'auth') {
     return (
-      <div style={pageStyle}>
-        <div style={authWrapperStyle}>
-          <div style={heroStyle}>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'start',
-                alignItems: 'center',
-                gap: 12,
-              }}
-            >
-              <img
-                src="/icon128.png"
-                alt="Logo de MyVault de 128 x 128"
-                style={{ width: 64, height: 64 }}
-              />
-              <h1 style={titleStyle}>MyVault</h1>
-            </div>
-          </div>
-
-          <div style={authGridStyle}>
-            <section style={cardStyle}>
-              <h2 style={cardTitleStyle}>Iniciar sesión</h2>
-
-              <label style={labelStyle}>Usuario</label>
-              <input
-                style={inputStyle}
-                value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
-                placeholder="Tu usuario"
-              />
-
-              <label style={labelStyle}>Contraseña de login</label>
-              <input
-                style={inputStyle}
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Tu contraseña de login"
-              />
-
-              <button style={primaryButtonStyle} onClick={handleLogin}>
-                Ingresar
-              </button>
-            </section>
-
-            <section style={cardStyle}>
-              <h2 style={cardTitleStyle}>Crear usuario</h2>
-
-              <label style={labelStyle}>Nuevo usuario</label>
-              <input
-                style={inputStyle}
-                value={registerUsername}
-                onChange={(e) => setRegisterUsername(e.target.value)}
-                placeholder="Elegí un usuario"
-              />
-
-              <label style={labelStyle}>Contraseña de login</label>
-              <input
-                style={inputStyle}
-                type="password"
-                value={registerPassword}
-                onChange={(e) => setRegisterPassword(e.target.value)}
-                placeholder="Elegí una contraseña de login"
-              />
-
-              <label style={labelStyle}>Confirmar contraseña de login</label>
-              <input
-                style={inputStyle}
-                type="password"
-                value={registerPasswordConfirm}
-                onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
-                placeholder="Repetí la contraseña de login"
-              />
-
-              <label style={labelStyle}>Master password del vault</label>
-              <input
-                style={inputStyle}
-                type="password"
-                value={registerVaultPassword}
-                onChange={(e) => setRegisterVaultPassword(e.target.value)}
-                placeholder="Elegí una master password"
-              />
-
-              <label style={labelStyle}>Confirmar master password</label>
-              <input
-                style={inputStyle}
-                type="password"
-                value={registerVaultPasswordConfirm}
-                onChange={(e) => setRegisterVaultPasswordConfirm(e.target.value)}
-                placeholder="Repetí la master password"
-              />
-
-              <button style={secondaryButtonStyle} onClick={handleCreateUser}>
-                Crear usuario
-              </button>
-            </section>
-          </div>
-
-          <div style={statusBoxStyle}>{status}</div>
-        </div>
-      </div>
+      <AuthView
+        loginUsername={loginUsername}
+        setLoginUsername={setLoginUsername}
+        loginPassword={loginPassword}
+        setLoginPassword={setLoginPassword}
+        registerUsername={registerUsername}
+        setRegisterUsername={setRegisterUsername}
+        registerPassword={registerPassword}
+        setRegisterPassword={setRegisterPassword}
+        registerPasswordConfirm={registerPasswordConfirm}
+        setRegisterPasswordConfirm={setRegisterPasswordConfirm}
+        registerVaultPassword={registerVaultPassword}
+        setRegisterVaultPassword={setRegisterVaultPassword}
+        registerVaultPasswordConfirm={registerVaultPasswordConfirm}
+        setRegisterVaultPasswordConfirm={setRegisterVaultPasswordConfirm}
+        status={status}
+        onLogin={handleLogin}
+        onCreateUser={handleCreateUser}
+      />
     )
   }
 
   if (view === 'unlock') {
     return (
-      <div style={pageStyle}>
-        <div style={{ ...authWrapperStyle, maxWidth: 500 }}>
-          <div style={heroStyle}>
-            <h1 style={titleStyle}>Desbloquear vault</h1>
-            <p style={subtitleStyle}>
-              Ingresá la master password para descifrar tus datos guardados.
-            </p>
-          </div>
-
-          <section style={cardStyle}>
-            <label style={labelStyle}>Master password</label>
-            <input
-              style={inputStyle}
-              type="password"
-              value={unlockPassword}
-              onChange={(e) => setUnlockPassword(e.target.value)}
-              placeholder="Master password del vault"
-            />
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-              <button style={primaryButtonStyle} onClick={handleUnlockVault}>
-                Desbloquear
-              </button>
-
-              <button style={ghostButtonStyle} onClick={handleLogout}>
-                Volver
-              </button>
-            </div>
-          </section>
-
-          <div style={statusBoxStyle}>{status}</div>
-        </div>
-      </div>
+      <UnlockView
+        unlockPassword={unlockPassword}
+        setUnlockPassword={setUnlockPassword}
+        status={status}
+        onUnlock={handleUnlockVault}
+        onBack={handleLogout}
+      />
     )
   }
 
   if (view === 'home') {
     return (
-      <div style={pageStyle}>
-        <div style={{ ...authWrapperStyle, maxWidth: 780 }}>
-          <div style={heroStyle}>
-            <h1 style={titleStyle}>Panel principal</h1>
-            <p style={subtitleStyle}>
-              Elegí qué querés abrir. Ambos módulos se guardan cifrados.
-            </p>
-          </div>
-
-          <div style={homeGridStyle}>
-            <section style={homeCardStyle}>
-              <h2 style={cardTitleStyle}>Contraseñas</h2>
-              <p style={homeCardTextStyle}>
-                Administrá cuentas, usuarios y claves guardadas en tu vault.
-              </p>
-              <button style={primaryButtonStyle} onClick={() => setView('passwords')}>
-                Contraseñas
-              </button>
-            </section>
-
-            <section style={homeCardStyle}>
-              <h2 style={cardTitleStyle}>Anotaciones</h2>
-              <p style={homeCardTextStyle}>
-                Guardá notas privadas con título y texto en un archivo cifrado separado.
-              </p>
-              <button style={secondaryButtonStyle} onClick={() => setView('notes')}>
-                Anotaciones
-              </button>
-            </section>
-          </div>
-
-          <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-            <button style={dangerButtonStyle} onClick={handleDeleteCurrentUser}>
-              Eliminar usuario
-            </button>
-            <button style={ghostButtonStyle} onClick={handleLogout}>
-              Cerrar sesión
-            </button>
-          </div>
-
-          <div style={statusBoxStyle}>{status}</div>
-        </div>
-      </div>
+      <HomeView
+        status={status}
+        onOpenPasswords={() => setView('passwords')}
+        onOpenNotes={() => setView('notes')}
+        onDeleteUser={() => void handleDeleteCurrentUser()}
+        onLogout={() => void handleLogout()}
+      />
     )
   }
 
   if (view === 'passwords') {
     return (
-      <div style={pageStyle}>
-        <div style={appShellStyle}>
-          <div style={toolbarStyle}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 27, color: '#f8fafc' }}>Vault de contraseñas</h1>
-              <div style={{ marginTop: 5, color: '#94a3b8', fontSize: 13 }}>
-                {totalEntries} {totalEntries === 1 ? 'cuenta' : 'cuentas'}
-              </div>
-            </div>
-
-            <div style={toolbarButtonsStyle}>
-              <button style={ghostButtonStyle} onClick={() => setView('home')}>
-                Inicio
-              </button>
-              <button
-                style={ghostButtonStyle}
-                onClick={() => setShowPasswords((v) => !v)}
-                disabled={savingPasswords}
-              >
-                {showPasswords ? 'Ocultar claves' : 'Mostrar claves'}
-              </button>
-              <button
-                style={secondaryButtonStyle}
-                onClick={addEntry}
-                disabled={savingPasswords}
-              >
-                Agregar cuenta
-              </button>
-              <button
-                style={primaryButtonStyle}
-                onClick={handleSavePasswords}
-                disabled={savingPasswords}
-              >
-                {savingPasswords ? 'Guardando...' : 'Guardar'}
-              </button>
-              <button style={dangerButtonStyle} onClick={handleLogout}>
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-
-          <div style={tableHeaderStyle}>
-            <div>Cuenta</div>
-            <div>Usuario</div>
-            <div>Contraseña</div>
-            <div>Acciones</div>
-          </div>
-
-          <div style={listStyle}>
-            {entries.length === 0 ? (
-              <div style={emptyStateStyle}>No hay cuentas todavía. Agregá la primera.</div>
-            ) : (
-              entries.map((entry, i) => (
-                <div key={entry.id} style={rowStyle4}>
-                  <input
-                    style={inputStyle}
-                    value={entry.account}
-                    onChange={(e) => updateEntry(i, { account: e.target.value })}
-                    placeholder="Ej: github"
-                  />
-
-                  <input
-                    style={inputStyle}
-                    value={entry.username}
-                    onChange={(e) => updateEntry(i, { username: e.target.value })}
-                    placeholder="Usuario o email"
-                  />
-
-                  <input
-                    style={inputStyle}
-                    type={showPasswords ? 'text' : 'password'}
-                    value={entry.password}
-                    onChange={(e) => updateEntry(i, { password: e.target.value })}
-                    placeholder="Contraseña"
-                  />
-
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      style={ghostButtonStyle}
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(entry.password)
-                        setStatus(`Contraseña copiada: ${entry.account || 'sin nombre'}`)
-                      }}
-                    >
-                      Copiar
-                    </button>
-                    <button
-                      style={dangerButtonStyle}
-                      onClick={() => void handleDeleteEntry(i)}
-                      disabled={savingPasswords}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div style={statusBoxStyle}>{status}</div>
-        </div>
-      </div>
+      <PasswordsView
+        entries={entries}
+        totalEntries={totalEntries}
+        savingPasswords={savingPasswords}
+        showPasswords={showPasswords}
+        visiblePasswords={visiblePasswords}
+        status={status}
+        onGoHome={() => setView('home')}
+        onToggleShowPasswords={() => setShowPasswords((v) => !v)}
+        onAddEntry={addEntry}
+        onSave={() => void handleSavePasswords()}
+        onLogout={() => void handleLogout()}
+        onUpdateEntry={updateEntry}
+        onCopyPassword={(entry) => void handleCopyPassword(entry)}
+        onDeleteEntry={(index) => void handleDeleteEntry(index)}
+        onToggleEntryPassword={toggleEntryPassword}
+      />
     )
   }
 
   return (
     <>
-      <div style={pageStyle}>
-        <div style={appShellStyle}>
-          <div style={toolbarStyle}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 27, color: '#f8fafc' }}>Anotaciones privadas</h1>
-              <div style={{ marginTop: 5, color: '#94a3b8', fontSize: 13 }}>
-                {totalNotes} {totalNotes === 1 ? 'anotación' : 'anotaciones'}
-              </div>
-            </div>
+      <NotesView
+        totalNotes={totalNotes}
+        status={status}
+        notesSearch={notesSearch}
+        setNotesSearch={setNotesSearch}
+        noteHasUnsavedChanges={noteHasUnsavedChanges}
+        filteredNotes={filteredNotes}
+        selectedNoteId={selectedNoteId}
+        notes={notes}
+        noteDraft={noteDraft}
+        selectedNoteExistsInSavedList={selectedNoteExistsInSavedList}
+        savingNotes={savingNotes}
+        onGoHome={handleGoHomeRequest}
+        onNewNote={handleNewNote}
+        onDiscardChanges={discardCurrentNoteChanges}
+        onSaveNote={() => void handleSaveCurrentNote()}
+        onDeleteNote={() => void handleDeleteCurrentNote()}
+        onLogout={() => void handleLogout()}
+        onSelectNote={handleSelectNote}
+        setNoteDraft={setNoteDraft}
+        getNoteButtonLabel={getNoteButtonLabel}
+      />
 
-            <div style={toolbarButtonsStyle}>
-              <button style={ghostButtonStyle} onClick={handleGoHomeRequest}>
-                Inicio
-              </button>
-              <button style={secondaryButtonStyle} onClick={handleNewNote}>
-                Nueva anotación
-              </button>
-              <button
-                style={ghostButtonStyle}
-                onClick={discardCurrentNoteChanges}
-                disabled={!noteHasUnsavedChanges}
-              >
-                Descartar cambios
-              </button>
-              <button
-                style={primaryButtonStyle}
-                onClick={() => void handleSaveCurrentNote()}
-                disabled={savingNotes || !noteDraft}
-              >
-                {savingNotes ? 'Guardando...' : 'Guardar'}
-              </button>
-              <button
-                style={dangerButtonStyle}
-                onClick={() => void handleDeleteCurrentNote()}
-                disabled={!selectedNoteId}
-              >
-                Eliminar
-              </button>
-              <button style={dangerButtonStyle} onClick={handleLogout}>
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-
-          <div style={notesLayoutStyle}>
-            <aside style={notesSidebarStyle}>
-              <div style={notesSidebarHeaderRowStyle}>
-                <div style={notesSidebarHeaderStyle}>Tus anotaciones</div>
-                {noteHasUnsavedChanges ? (
-                  <div style={unsavedBadgeStyle}>Sin guardar</div>
-                ) : (
-                  <div style={savedBadgeStyle}>Guardado</div>
-                )}
-              </div>
-
-              <input
-                style={searchInputStyle}
-                value={notesSearch}
-                onChange={(e) => setNotesSearch(e.target.value)}
-                placeholder="Buscar por título..."
-              />
-
-              <div style={notesButtonsListStyle}>
-                {filteredNotes.length === 0 ? (
-                  <div style={emptySidebarStyle}>
-                    {notesSearch.trim()
-                      ? 'No hay anotaciones que coincidan con la búsqueda.'
-                      : 'Todavía no hay anotaciones guardadas.'}
-                  </div>
-                ) : (
-                  filteredNotes.map((note, index) => {
-                    const isActive = note.id === selectedNoteId
-                    const isDraftOnly = !notes.some((saved) => saved.id === note.id)
-
-                    return (
-                      <button
-                        key={note.id}
-                        style={{
-                          ...noteListButtonStyle,
-                          ...(isActive ? noteListButtonActiveStyle : null),
-                        }}
-                        onClick={() => handleSelectNote(note.id)}
-                      >
-                        <div style={noteButtonTitleStyle}>
-                          {getNoteButtonLabel(note, index)}
-                        </div>
-                        <div style={noteButtonMetaStyle}>
-                          {isDraftOnly ? 'Nueva' : 'Guardada'}
-                          {isActive && noteHasUnsavedChanges ? ' · con cambios' : ''}
-                        </div>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </aside>
-
-            <section style={notesEditorStyle}>
-              {!noteDraft ? (
-                <div style={emptyStateStyle}>
-                  Seleccioná una anotación o creá una nueva para empezar.
-                </div>
-              ) : (
-                <div style={noteEditorCardStyle}>
-                  <div style={noteMetaStyle}>
-                    {selectedNoteExistsInSavedList ? 'Anotación guardada' : 'Nueva anotación'}
-                    {noteHasUnsavedChanges
-                      ? ' · cambios sin guardar'
-                      : ' · sin cambios pendientes'}
-                  </div>
-
-                  <label style={labelStyle}>Título</label>
-                  <input
-                    style={inputStyle}
-                    value={noteDraft.title}
-                    onChange={(e) =>
-                      setNoteDraft((prev) =>
-                        prev ? { ...prev, title: e.target.value } : prev,
-                      )
-                    }
-                    placeholder="Título de la anotación"
-                  />
-
-                  <label style={labelStyle}>Texto</label>
-                  <textarea
-                    style={textareaStyle}
-                    value={noteDraft.content}
-                    onChange={(e) =>
-                      setNoteDraft((prev) =>
-                        prev ? { ...prev, content: e.target.value } : prev,
-                      )
-                    }
-                    placeholder="Escribí tu anotación privada..."
-                  />
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div style={statusBoxStyle}>{status}</div>
-        </div>
-      </div>
-
-      {unsavedPromptAction ? (
-        <div style={modalOverlayStyle}>
-          <div style={modalCardStyle}>
-            <h2 style={modalTitleStyle}>{promptTitle}</h2>
-            <p style={modalTextStyle}>{promptDescription}</p>
-
-            <div style={modalButtonsStyle}>
-              <button
-                style={primaryButtonStyle}
-                onClick={() => void resolveUnsavedPrompt('save')}
-              >
-                {promptPrimaryLabel}
-              </button>
-
-              <button
-                style={dangerButtonStyle}
-                onClick={() => void resolveUnsavedPrompt('discard')}
-              >
-                {promptSecondaryLabel}
-              </button>
-
-              <button
-                style={ghostButtonStyle}
-                onClick={() => void resolveUnsavedPrompt('cancel')}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <UnsavedChangesModal
+        open={!!unsavedPromptAction}
+        title={promptTitle}
+        description={promptDescription}
+        primaryLabel={promptPrimaryLabel}
+        secondaryLabel={promptSecondaryLabel}
+        onSave={() => void resolveUnsavedPrompt('save')}
+        onDiscard={() => void resolveUnsavedPrompt('discard')}
+        onCancel={() => void resolveUnsavedPrompt('cancel')}
+      />
     </>
   )
-}
-
-const pageStyle: CSSProperties = {
-  minHeight: '100vh',
-  background:
-    'radial-gradient(circle at top, #1e293b 0%, #0f172a 35%, #020617 100%)',
-  fontFamily: 'Inter, Arial, sans-serif',
-  color: '#e5e7eb',
-  padding: 18,
-  boxSizing: 'border-box',
-}
-
-const authWrapperStyle: CSSProperties = {
-  maxWidth: 1100,
-  margin: '0 auto',
-}
-
-const heroStyle: CSSProperties = {
-  marginBottom: 18,
-}
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 35,
-  fontWeight: 700,
-  color: '#f8fafc',
-}
-
-const subtitleStyle: CSSProperties = {
-  marginTop: 8,
-  fontSize: 15,
-  color: '#94a3b8',
-}
-
-const authGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 16,
-}
-
-const homeGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: 16,
-}
-
-const cardStyle: CSSProperties = {
-  background: 'rgba(15, 23, 42, 0.82)',
-  borderRadius: 16,
-  padding: 18,
-  boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
-  border: '1px solid #243041',
-  backdropFilter: 'blur(10px)',
-}
-
-const homeCardStyle: CSSProperties = {
-  background: 'rgba(15, 23, 42, 0.82)',
-  borderRadius: 16,
-  padding: 20,
-  boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
-  border: '1px solid #243041',
-  backdropFilter: 'blur(10px)',
-}
-
-const cardTitleStyle: CSSProperties = {
-  marginTop: 0,
-  marginBottom: 14,
-  fontSize: 21,
-  color: '#f8fafc',
-}
-
-const homeCardTextStyle: CSSProperties = {
-  marginTop: 0,
-  marginBottom: 14,
-  color: '#94a3b8',
-  lineHeight: 1.45,
-  fontSize: 14,
-}
-
-const labelStyle: CSSProperties = {
-  display: 'block',
-  marginBottom: 6,
-  marginTop: 8,
-  fontSize: 13,
-  fontWeight: 600,
-  color: '#cbd5e1',
-}
-
-const inputStyle: CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid #334155',
-  fontSize: 14,
-  boxSizing: 'border-box',
-  outline: 'none',
-  background: '#0f172a',
-  color: '#f8fafc',
-}
-
-const searchInputStyle: CSSProperties = {
-  width: '100%',
-  padding: '9px 11px',
-  borderRadius: 10,
-  border: '1px solid #334155',
-  fontSize: 13,
-  boxSizing: 'border-box',
-  outline: 'none',
-  background: '#0f172a',
-  color: '#f8fafc',
-  marginBottom: 12,
-}
-
-const textareaStyle: CSSProperties = {
-  width: '100%',
-  minHeight: 280,
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid #334155',
-  fontSize: 14,
-  boxSizing: 'border-box',
-  outline: 'none',
-  background: '#0f172a',
-  color: '#f8fafc',
-  resize: 'vertical',
-  fontFamily: 'inherit',
-  lineHeight: 1.45,
-}
-
-const primaryButtonStyle: CSSProperties = {
-  marginTop: 14,
-  padding: '10px 14px',
-  borderRadius: 10,
-  border: 'none',
-  cursor: 'pointer',
-  fontSize: 14,
-  fontWeight: 600,
-  background: '#2563eb',
-  color: '#fff',
-}
-
-const secondaryButtonStyle: CSSProperties = {
-  marginTop: 14,
-  padding: '10px 14px',
-  borderRadius: 10,
-  border: '1px solid #334155',
-  cursor: 'pointer',
-  fontSize: 14,
-  fontWeight: 600,
-  background: '#111827',
-  color: '#e5e7eb',
-}
-
-const ghostButtonStyle: CSSProperties = {
-  padding: '9px 13px',
-  borderRadius: 10,
-  border: '1px solid #334155',
-  cursor: 'pointer',
-  fontSize: 13,
-  background: '#0f172a',
-  color: '#e2e8f0',
-}
-
-const dangerButtonStyle: CSSProperties = {
-  padding: '9px 13px',
-  borderRadius: 10,
-  border: 'none',
-  cursor: 'pointer',
-  fontSize: 13,
-  background: '#dc2626',
-  color: '#fff',
-}
-
-const statusBoxStyle: CSSProperties = {
-  marginTop: 14,
-  background: 'rgba(15, 23, 42, 0.82)',
-  border: '1px solid #243041',
-  borderRadius: 12,
-  padding: '12px 14px',
-  color: '#cbd5e1',
-  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
-  fontSize: 13,
-}
-
-const appShellStyle: CSSProperties = {
-  maxWidth: 1280,
-  margin: '0 auto',
-  background: 'rgba(15, 23, 42, 0.86)',
-  borderRadius: 18,
-  padding: 18,
-  boxShadow: '0 22px 50px rgba(0, 0, 0, 0.35)',
-  border: '1px solid #243041',
-  backdropFilter: 'blur(10px)',
-}
-
-const toolbarStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 14,
-  marginBottom: 18,
-}
-
-const toolbarButtonsStyle: CSSProperties = {
-  display: 'flex',
-  gap: 8,
-  flexWrap: 'wrap',
-  justifyContent: 'flex-end',
-}
-
-const tableHeaderStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr 1fr 220px',
-  gap: 12,
-  fontSize: 12,
-  fontWeight: 700,
-  color: '#94a3b8',
-  marginBottom: 8,
-  padding: '0 4px',
-}
-
-const listStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10,
-}
-
-const rowStyle4: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr 1fr 220px',
-  gap: 12,
-  alignItems: 'center',
-  padding: 10,
-  borderRadius: 14,
-  background: '#111827',
-  border: '1px solid #243041',
-}
-
-const emptyStateStyle: CSSProperties = {
-  padding: 18,
-  textAlign: 'center',
-  borderRadius: 14,
-  background: '#0f172a',
-  border: '1px dashed #334155',
-  color: '#94a3b8',
-  fontSize: 13,
-}
-
-const notesLayoutStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '300px 1fr',
-  gap: 16,
-  alignItems: 'start',
-}
-
-const notesSidebarStyle: CSSProperties = {
-  background: '#111827',
-  border: '1px solid #243041',
-  borderRadius: 16,
-  padding: 14,
-  minHeight: 420,
-}
-
-const notesSidebarHeaderRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 8,
-  marginBottom: 10,
-}
-
-const notesSidebarHeaderStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  color: '#cbd5e1',
-}
-
-const unsavedBadgeStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  color: '#fbbf24',
-  background: 'rgba(251, 191, 36, 0.14)',
-  border: '1px solid rgba(251, 191, 36, 0.35)',
-  borderRadius: 999,
-  padding: '3px 7px',
-  whiteSpace: 'nowrap',
-}
-
-const savedBadgeStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  color: '#4ade80',
-  background: 'rgba(74, 222, 128, 0.12)',
-  border: '1px solid rgba(74, 222, 128, 0.28)',
-  borderRadius: 999,
-  padding: '3px 7px',
-  whiteSpace: 'nowrap',
-}
-
-const notesButtonsListStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-}
-
-const noteListButtonStyle: CSSProperties = {
-  width: '100%',
-  textAlign: 'left',
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid #334155',
-  background: '#0f172a',
-  color: '#e5e7eb',
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-}
-
-const noteListButtonActiveStyle: CSSProperties = {
-  border: '1px solid #3b82f6',
-  background: 'rgba(59, 130, 246, 0.14)',
-  color: '#bfdbfe',
-}
-
-const noteButtonTitleStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  lineHeight: 1.3,
-  marginBottom: 3,
-  wordBreak: 'break-word',
-}
-
-const noteButtonMetaStyle: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 500,
-  color: '#94a3b8',
-}
-
-const notesEditorStyle: CSSProperties = {
-  minWidth: 0,
-}
-
-const noteEditorCardStyle: CSSProperties = {
-  background: '#111827',
-  border: '1px solid #243041',
-  borderRadius: 16,
-  padding: 14,
-}
-
-const noteMetaStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: '#94a3b8',
-  marginBottom: 6,
-}
-
-const emptySidebarStyle: CSSProperties = {
-  padding: 12,
-  borderRadius: 10,
-  background: '#0f172a',
-  border: '1px dashed #334155',
-  color: '#94a3b8',
-  fontSize: 13,
-}
-
-const modalOverlayStyle: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(2, 6, 23, 0.68)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 18,
-  zIndex: 9999,
-}
-
-const modalCardStyle: CSSProperties = {
-  width: '100%',
-  maxWidth: 500,
-  background: '#0f172a',
-  borderRadius: 18,
-  padding: 20,
-  boxShadow: '0 24px 60px rgba(0, 0, 0, 0.5)',
-  border: '1px solid #243041',
-}
-
-const modalTitleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 21,
-  fontWeight: 700,
-  color: '#f8fafc',
-}
-
-const modalTextStyle: CSSProperties = {
-  marginTop: 10,
-  marginBottom: 0,
-  color: '#cbd5e1',
-  lineHeight: 1.5,
-  fontSize: 14,
-}
-
-const modalButtonsStyle: CSSProperties = {
-  display: 'flex',
-  gap: 10,
-  flexWrap: 'wrap',
-  marginTop: 18,
 }
