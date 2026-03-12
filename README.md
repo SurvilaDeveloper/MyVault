@@ -1,232 +1,211 @@
-# React + TypeScript + Vite
+# MyVault
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Electron](https://img.shields.io/badge/Electron-App-blue)
+![React](https://img.shields.io/badge/React-Frontend-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-Code-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-Currently, two official plugins are available:
+**MyVault** es un gestor **local, privado y seguro** de contraseñas y
+notas desarrollado con **Electron, React y TypeScript**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+La aplicación está diseñada para que el usuario mantenga el **control
+total de sus datos**, sin depender de servicios en la nube ni
+sincronización externa. Toda la información se guarda **cifrada
+localmente en el dispositivo**.
 
-## Expanding the ESLint configuration
+------------------------------------------------------------------------
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+# Características
 
-- Configure the top-level `parserOptions` property like this:
+-   🔐 Almacenamiento **cifrado local**
+-   👤 **Sistema de usuarios**
+-   🔑 Vault protegido con contraseña independiente
+-   📝 Gestor de **notas seguras**
+-   🌙 Interfaz moderna con **tema oscuro**
+-   💻 Aplicación de **escritorio**
+-   📂 Datos almacenados **solo en el dispositivo**
+-   🚫 **Sin conexión obligatoria a internet**
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
+------------------------------------------------------------------------
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+# Tecnologías utilizadas
 
-# 🔐 Encrypted Vault – Password Manager (Electron + React + TypeScript)
+-   Electron
+-   React
+-   TypeScript
+-   Vite
+-   bcryptjs
 
-Aplicación de escritorio para **guardar contraseñas de forma cifrada** utilizando **Electron, React y TypeScript**.
+Arquitectura simplificada:
 
-Las contraseñas se almacenan en un **vault cifrado localmente**, protegido por una **master password**.
-La aplicación **no utiliza servidores ni almacenamiento remoto**: todos los datos quedan en tu computadora.
+    Electron (Main Process)
+            │
+            │ IPC
+            ▼
+    Preload (contextBridge)
+            │
+            ▼
+    React Renderer
 
----
+La aplicación utiliza:
 
-# ✨ Características
+-   `contextIsolation`
+-   `sandbox`
+-   `nodeIntegration: false`
 
-* 🔑 Login de usuario
-* 🔐 Master password para desbloquear el vault
-* 🔒 Cifrado AES-256-GCM
-* 🧂 Derivación de clave con `scrypt`
-* 🧂 Hash de contraseñas con `bcrypt`
-* 🗂 Vault local por usuario
-* 👁 Mostrar / ocultar contraseñas
-* 📋 Copiar contraseña al portapapeles
-* ➕ Agregar / editar / eliminar cuentas
-* 👤 Eliminación completa de usuario (incluye su vault)
+para mejorar la seguridad.
 
----
+------------------------------------------------------------------------
 
-# 🧠 Arquitectura
+# Seguridad
 
-La aplicación utiliza la arquitectura estándar de Electron:
+MyVault fue desarrollado siguiendo buenas prácticas de seguridad:
 
-```
-React UI (Renderer)
-        │
-        │ window.api
-        ▼
-Preload (puente seguro)
-        │
-        │ IPC
-        ▼
-Main process (Node)
-        │
-        ├─ auth.ts   → gestión de usuarios
-        │
-        └─ vault.ts  → cifrado y almacenamiento
-```
+-   cifrado del vault protegido por contraseña
+-   aislamiento de contexto en Electron
+-   bloqueo de navegación externa dentro de la aplicación
+-   apertura de enlaces externos mediante el navegador del sistema
+-   sandbox habilitado
+-   comunicación controlada mediante IPC
 
-### Seguridad
+Los datos se almacenan localmente en:
 
-* `contextIsolation` activado
-* `nodeIntegration` desactivado
-* acceso a Node solo a través de `preload`
-* contraseñas hasheadas con **bcrypt**
-* vault cifrado con **AES-256-GCM**
+    AppData/Roaming/MyVault
 
----
+Cada usuario posee sus propios archivos cifrados:
 
-# 📦 Estructura del proyecto
+    username.vault
+    username.notes.vault
 
-```
-project/
-│
-├─ electron/
-│   ├─ main.ts
-│   ├─ preload.ts
-│   ├─ auth.ts
-│   └─ vault.ts
-│
-├─ src/
-│   ├─ App.tsx
-│   ├─ main.tsx
-│   └─ electron.d.ts
-│
-├─ dist/
-├─ dist-electron/
-│
-├─ package.json
-└─ tsconfig.json
-```
+------------------------------------------------------------------------
 
----
+# Instalación
 
-# 💾 Dónde se guardan los datos
+## Descargar ejecutable
 
-Los archivos se guardan en la carpeta de datos de la aplicación.
+Desde la sección **Releases** del repositorio.
 
-### Windows
+Instalador:
 
-```
-C:\Users\TU_USUARIO\AppData\Roaming\NOMBRE_APP\
-```
+    MyVault-Setup-x.x.x.exe
 
-Ejemplo:
+Versión portable:
 
-```
-auth.json
-vaults/
-   gabriel.vault
-```
+    MyVault-Portable-x.x.x.exe
 
----
+------------------------------------------------------------------------
 
-# 🔐 Cómo funciona el cifrado
+# Compilar desde el código fuente
 
-El vault se cifra usando:
+Requisitos:
 
-```
-AES-256-GCM
-```
+-   Node.js 18 o superior
+-   npm
 
-La clave se deriva con:
+Clonar repositorio:
 
-```
-scrypt(masterPassword, salt)
-```
-
-Cada vault contiene:
-
-```
-{
-  salt
-  iv
-  tag
-  data (ciphertext)
-}
-```
-
-Las entradas reales:
-
-```
-{
-  account
-  username
-  password
-}
-```
-
-están dentro de `data` **cifradas**.
-
----
-
-# 🚀 Instalación
-
-Clonar el repositorio:
-
-```bash
-git clone https://github.com/TU_USUARIO/encrypted-vault.git
-cd encrypted-vault
+``` bash
+git clone https://github.com/SurvilaDeveloper/MyVault.git
+cd MyVault
 ```
 
 Instalar dependencias:
 
-```bash
+``` bash
 npm install
 ```
 
----
+Modo desarrollo:
 
-# ▶ Ejecutar en desarrollo
-
-```bash
+``` bash
 npm run dev
 ```
 
-Esto inicia:
+Construir aplicación:
 
-* Vite
-* Electron
-* React
-
----
-
-# 📦 Build
-
-Para generar el build:
-
-```bash
-npm run build
+``` bash
+npm run dist
 ```
 
----
+Los binarios se generarán en:
 
-# ⚠ Importante
+    /release
 
-* La aplicación **no sincroniza datos**.
-* Todo el vault se guarda **localmente**.
-* Si se pierde la **master password**, **no hay forma de recuperar las contraseñas**.
+------------------------------------------------------------------------
 
----
+# Estructura del proyecto
 
-# 🛠 Tecnologías
+    electron/
+     ├ main.ts
+     ├ preload.ts
 
-* Electron
-* React
-* TypeScript
-* Vite
-* bcryptjs
-* Node Crypto
+    src/
+     ├ App.tsx
+     ├ components/
 
----
+    public/
+     ├ myvault.png
 
-# 📜 Licencia
+    dist-electron/
+    dist-renderer/
+    release/
 
-MIT
+------------------------------------------------------------------------
+
+# Roadmap
+
+Funciones planificadas:
+
+-   generador de contraseñas seguras
+-   auto‑bloqueo del vault por inactividad
+-   autodestrucción del portapapeles
+-   importación y exportación de vault
+-   mejoras de interfaz
+-   soporte multiplataforma (Linux y macOS)
+
+------------------------------------------------------------------------
+
+# Licencia
+
+Este proyecto es **software libre y de código abierto**.
+
+Licencia sugerida: **MIT**
+
+------------------------------------------------------------------------
+
+# Autor
+
+**Gabriel Survila**
+
+Email:
+
+surviladeveloper@gmail.com
+
+Repositorio:
+
+https://github.com/SurvilaDeveloper/MyVault
+
+------------------------------------------------------------------------
+
+# Filosofía del proyecto
+
+MyVault sigue un principio simple:
+
+> Tus contraseñas deben estar bajo tu control, no en un servidor
+> externo.
+
+La aplicación funciona completamente **offline** y los datos permanecen
+**únicamente en el dispositivo del usuario**.
+
+------------------------------------------------------------------------
+
+# Contribuciones
+
+Las contribuciones son bienvenidas.
+
+Puedes colaborar con:
+
+-   mejoras de seguridad
+-   mejoras de interfaz
+-   auditorías de código
+-   nuevas funcionalidades
