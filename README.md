@@ -95,6 +95,12 @@ Versión portable:
 
 ------------------------------------------------------------------------
 
+# Open Source
+
+La build es open source y puede mostrar advertencia de Windows por no estar firmada con certificado reconocido.
+
+------------------------------------------------------------------------
+
 # Compilar desde el código fuente
 
 Requisitos:
