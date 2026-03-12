@@ -5,7 +5,9 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:;" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>About MyVault</title>
+
+    <title>Información del proyecto</title>
+
     <style>
         :root {
             color-scheme: dark;
@@ -15,6 +17,8 @@
             --muted: #94a3b8;
             --border: #334155;
             --accent: #60a5fa;
+            --accent-soft: rgba(96, 165, 250, 0.12);
+            --success: #86efac;
         }
 
         * {
@@ -32,54 +36,256 @@
         }
 
         .card {
-            width: min(92vw, 460px);
+            width: min(92vw, 440px);
             background: rgba(17, 24, 39, 0.94);
             border: 1px solid var(--border);
             border-radius: 18px;
-            padding: 28px 24px;
+            padding: 20px 20px;
             text-align: center;
             box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
         }
 
+        .logo-wrap {
+            display: grid;
+            place-items: center;
+            margin-bottom: 12px;
+        }
+
         img {
-            width: 72px;
-            height: 72px;
+            width: 70px;
+            height: 70px;
             object-fit: contain;
-            margin-bottom: 16px;
         }
 
         h1 {
-            margin: 0 0 8px;
-            font-size: 1.7rem;
+            margin: 8px 0 4px;
+            font-size: 1.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .version {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 10px;
         }
 
         p {
-            margin: 8px 0;
+            margin: 6px 0;
+            font-size: 0.72rem;
+            line-height: 1.1;
         }
 
         .muted {
             color: var(--muted);
         }
 
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 16px 0;
+            opacity: 0.7;
+        }
+
+        .links {
+            display: grid;
+            gap: 8px;
+            font-size: 0.72rem;
+        }
+
+        .contact-row,
+        .repo-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .email-text {
+            color: var(--text);
+            user-select: text;
+            word-break: break-word;
+        }
+
+        .copy-btn {
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .copy-btn:hover {
+            border-color: var(--accent);
+            background: rgba(96, 165, 250, 0.18);
+        }
+
+        .copy-btn:active {
+            transform: scale(0.96);
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+        }
+
+        .copy-status {
+            min-height: 16px;
+            font-size: 0.68rem;
+            color: var(--muted);
+        }
+
+        .copy-status.success {
+            color: var(--success);
+        }
+
         a {
             color: var(--accent);
             text-decoration: none;
+            word-break: break-word;
         }
 
         a:hover {
             text-decoration: underline;
         }
+
+        .notice {
+            margin-top: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(148, 163, 184, 0.06);
+            color: var(--muted);
+            font-size: 0.70rem;
+            line-height: 1.45;
+        }
+
+        .footer {
+            margin-top: 14px;
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
     </style>
 </head>
 
 <body>
+
     <section class="card">
-        <img src="./myvault.png" alt="MyVault" />
+        <div class="logo-wrap">
+            <img src="./myvault.png" alt="MyVault logo">
+        </div>
+
         <h1>MyVault</h1>
-        <p class="muted">Gestor local y privado de contraseñas y notas.</p>
-        <p>Desarrollado por Gabriel Survila</p>
-        <p class="muted">© 2026</p>
+
+        <div class="version" id="version">
+            Versión
+        </div>
+
+        <p class="muted">
+            Gestor local y privado de contraseñas y notas.
+        </p>
+
+        <div class="divider"></div>
+
+        <p>
+            Desarrollado por <strong>Gabriel Survila</strong>
+        </p>
+
+        <div class="links">
+
+
+            <div class="contact-row">
+                <span>Contacto: </span>
+                <span class="email-text" id="emailText">surviladeveloper@gmail.com</span>
+
+                <button type="button" class="copy-btn" id="copyEmailBtn" title="Copiar email" aria-label="Copiar email">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="copy-status" id="copyStatus"></div>
+
+            <div class="repo-row">
+                <span>Repositorio:</span>
+                <a href="https://github.com/SurvilaDeveloper/myvault-repo" target="_blank" rel="noopener">
+                    github.com/SurvilaDeveloper/myvault-repo
+                </a>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="notice">
+            MyVault es <strong>software libre y de código abierto</strong>.
+            Su código puede ser estudiado, auditado y mejorado libremente.
+        </div>
+
+        <div class="footer">
+            © 2026 · MyVault
+        </div>
     </section>
+
+    <script>
+        const EMAIL = 'surviladeveloper@gmail.com'
+        let copyStatusTimeoutId = null
+
+        async function loadVersion() {
+            try {
+                const version = await window.api.getVersion()
+                document.getElementById('version').textContent = 'Versión ' + version
+            } catch {
+                document.getElementById('version').textContent = 'Versión desconocida'
+            }
+        }
+
+        function setCopyStatus(message, isSuccess = false) {
+            const copyStatus = document.getElementById('copyStatus')
+
+            copyStatus.textContent = message
+            copyStatus.className = isSuccess ? 'copy-status success' : 'copy-status'
+
+            if (copyStatusTimeoutId) {
+                clearTimeout(copyStatusTimeoutId)
+            }
+
+            copyStatusTimeoutId = setTimeout(() => {
+                copyStatus.textContent = ''
+                copyStatus.className = 'copy-status'
+                copyStatusTimeoutId = null
+            }, 2200)
+        }
+
+        async function copyEmailToClipboard() {
+            try {
+                const result = await window.api.copyToClipboard(EMAIL)
+
+                if (result?.ok) {
+                    setCopyStatus('Email copiado al portapapeles', true)
+                    return
+                }
+
+                setCopyStatus('No se pudo copiar el email')
+            } catch {
+                setCopyStatus('No se pudo copiar el email')
+            }
+        }
+
+        document.getElementById('copyEmailBtn').addEventListener('click', copyEmailToClipboard)
+
+        loadVersion()
+    </script>
+
 </body>
 
 </html>

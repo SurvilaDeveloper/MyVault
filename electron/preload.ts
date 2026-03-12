@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('api', {
 
   cancelCloseAfterPrompt: () => ipcRenderer.invoke('app:cancel-close-after-prompt'),
 
+  getVersion: () => ipcRenderer.invoke('app:get-version'),
+
+  copyToClipboard: (text: string) =>
+    ipcRenderer.invoke('app:copy-to-clipboard', text),
+
   onCloseRequested: (callback: () => void) => {
     const listener = () => callback()
     ipcRenderer.on('app:close-requested', listener)

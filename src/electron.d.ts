@@ -82,6 +82,10 @@ declare global {
 
             cancelCloseAfterPrompt: () => Promise<BasicResult>
 
+            getVersion: () => Promise<string>
+
+            copyToClipboard: (text: string) => Promise<BasicResult>
+
             onCloseRequested: (callback: () => void) => () => void
         }
     }
