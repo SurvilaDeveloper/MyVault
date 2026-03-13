@@ -14,10 +14,19 @@ type AuthFile = {
     users: AuthUser[]
 }
 
+type BasicResult = {
+    ok: boolean
+    error?: string
+}
+
 let currentUser: string | null = null
 
 function authPath() {
     return path.join(app.getPath('userData'), 'auth.json')
+}
+
+function authTempPath() {
+    return `${authPath()}.tmp`
 }
 
 function normalizeUsername(username: string) {
@@ -36,14 +45,40 @@ function isAuthUser(value: unknown): value is AuthUser {
     )
 }
 
+function normalizeAuthFile(data: unknown): AuthFile {
+    if (!data || typeof data !== 'object') {
+        return { users: [] }
+    }
+
+    const parsed = data as Partial<AuthFile>
+
+    return {
+        users: Array.isArray(parsed.users) ? parsed.users.filter(isAuthUser) : [],
+    }
+}
+
+async function removeIfExists(filePath: string) {
+    try {
+        await fs.rm(filePath, { force: true })
+    } catch {
+        // No interrumpir por fallas de limpieza.
+    }
+}
+
+async function writeFileAtomically(filePath: string, content: string) {
+    const tempPath = `${filePath}.tmp`
+
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
+    await removeIfExists(tempPath)
+    await fs.writeFile(tempPath, content, 'utf8')
+    await fs.rename(tempPath, filePath)
+}
+
 async function readAuth(): Promise<AuthFile> {
     try {
         const raw = await fs.readFile(authPath(), 'utf8')
-        const parsed = JSON.parse(raw) as Partial<AuthFile>
-
-        return {
-            users: Array.isArray(parsed.users) ? parsed.users.filter(isAuthUser) : [],
-        }
+        const parsed = JSON.parse(raw) as unknown
+        return normalizeAuthFile(parsed)
     } catch (error) {
         const isFileMissing =
             error instanceof Error &&
@@ -59,8 +94,13 @@ async function readAuth(): Promise<AuthFile> {
 }
 
 async function writeAuth(data: AuthFile) {
-    await fs.mkdir(path.dirname(authPath()), { recursive: true })
-    await fs.writeFile(authPath(), JSON.stringify(data, null, 2), 'utf8')
+    const normalized = normalizeAuthFile(data)
+    await writeFileAtomically(authPath(), JSON.stringify(normalized, null, 2))
+}
+
+function findUser(data: AuthFile, username: string) {
+    const normalizedUsername = normalizeUsername(username)
+    return data.users.find((u) => u.username === normalizedUsername) ?? null
 }
 
 export async function createUser(
@@ -86,7 +126,7 @@ export async function createUser(
 
     const data = await readAuth()
 
-    if (data.users.find((u) => u.username === normalizedUsername)) {
+    if (findUser(data, normalizedUsername)) {
         throw new Error('Ese usuario ya existe.')
     }
 
@@ -111,7 +151,7 @@ export async function login(username: string, password: string) {
     const normalizedUsername = normalizeUsername(username)
     const data = await readAuth()
 
-    const user = data.users.find((u) => u.username === normalizedUsername)
+    const user = findUser(data, normalizedUsername)
 
     if (!user) {
         currentUser = null
@@ -139,11 +179,11 @@ export async function login(username: string, password: string) {
     }
 }
 
-export async function verifyVaultPassword(username: string, vaultPassword: string) {
+export async function verifyVaultPassword(username: string, vaultPassword: string): Promise<BasicResult> {
     const normalizedUsername = normalizeUsername(username)
     const data = await readAuth()
 
-    const user = data.users.find((u) => u.username === normalizedUsername)
+    const user = findUser(data, normalizedUsername)
 
     if (!user) {
         return {
@@ -170,7 +210,7 @@ export async function changeLoginPassword(
     username: string,
     currentPassword: string,
     newPassword: string,
-) {
+): Promise<BasicResult> {
     const normalizedUsername = normalizeUsername(username)
     const trimmedCurrentPassword = currentPassword.trim()
     const trimmedNewPassword = newPassword.trim()
@@ -197,7 +237,7 @@ export async function changeLoginPassword(
     }
 
     const data = await readAuth()
-    const user = data.users.find((u) => u.username === normalizedUsername)
+    const user = findUser(data, normalizedUsername)
 
     if (!user) {
         return {
@@ -221,6 +261,36 @@ export async function changeLoginPassword(
     return { ok: true }
 }
 
+export async function updateVaultPasswordHash(
+    username: string,
+    newVaultPassword: string,
+): Promise<BasicResult> {
+    const normalizedUsername = normalizeUsername(username)
+    const trimmedNewVaultPassword = newVaultPassword.trim()
+
+    if (!trimmedNewVaultPassword) {
+        return {
+            ok: false,
+            error: 'La nueva master password no puede estar vacía.',
+        }
+    }
+
+    const data = await readAuth()
+    const user = findUser(data, normalizedUsername)
+
+    if (!user) {
+        return {
+            ok: false,
+            error: 'Usuario inexistente.',
+        }
+    }
+
+    user.vaultPasswordHash = await bcrypt.hash(trimmedNewVaultPassword, 10)
+    await writeAuth(data)
+
+    return { ok: true }
+}
+
 export async function deleteCurrentUser() {
     if (!currentUser) {
         throw new Error('No hay usuario logueado.')
@@ -238,6 +308,10 @@ export async function deleteCurrentUser() {
         ok: true,
         username: deletedUsername,
     }
+}
+
+export async function cleanupAuthTempFile() {
+    await removeIfExists(authTempPath())
 }
 
 export function logout() {

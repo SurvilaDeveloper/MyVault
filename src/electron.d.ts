@@ -71,6 +71,11 @@ declare global {
                 newPassword: string
             ) => Promise<BasicResult>
 
+            changeVaultPassword: (
+                currentVaultPassword: string,
+                newVaultPassword: string
+            ) => Promise<BasicResult>
+
             deleteCurrentUser: () => Promise<DeleteUserResult>
 
             loadVault: () => Promise<VaultLoadResult>

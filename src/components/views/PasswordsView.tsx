@@ -73,7 +73,7 @@ export function PasswordsView({
                             onClick={onToggleShowPasswords}
                             disabled={savingPasswords}
                         >
-                            {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {showPasswords ? <EyeOff size={16} color='white' /> : <Eye size={16} color='white' />}
                         </IconButton>
 
                         <IconButton
@@ -138,7 +138,7 @@ export function PasswordsView({
                                             title={isVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                                             onClick={() => onToggleEntryPassword(entry.id)}
                                         >
-                                            {isVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            {isVisible ? <EyeOff size={16} color='white' /> : <Eye size={16} color='white' />}
                                         </IconButton>
 
                                         <IconButton

@@ -41,30 +41,57 @@ export function HomeView({
     onLogout,
     onStatusChange,
 }: HomeViewProps) {
-    const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false)
+    const [isChangeLoginPasswordModalOpen, setIsChangeLoginPasswordModalOpen] =
+        useState(false)
+    const [isChangeVaultPasswordModalOpen, setIsChangeVaultPasswordModalOpen] =
+        useState(false)
+
     const [currentPassword, setCurrentPassword] = useState('')
     const [newPassword, setNewPassword] = useState('')
     const [repeatNewPassword, setRepeatNewPassword] = useState('')
     const [passwordStatus, setPasswordStatus] = useState('')
     const [isChangingPassword, setIsChangingPassword] = useState(false)
 
-    function resetChangePasswordModal() {
+    const [currentVaultPassword, setCurrentVaultPassword] = useState('')
+    const [newVaultPassword, setNewVaultPassword] = useState('')
+    const [repeatNewVaultPassword, setRepeatNewVaultPassword] = useState('')
+    const [vaultPasswordStatus, setVaultPasswordStatus] = useState('')
+    const [isChangingVaultPassword, setIsChangingVaultPassword] = useState(false)
+
+    function resetChangeLoginPasswordModal() {
         setCurrentPassword('')
         setNewPassword('')
         setRepeatNewPassword('')
         setPasswordStatus('')
-        setIsChangingPassword(false)
     }
 
-    function openChangePasswordModal() {
-        resetChangePasswordModal()
-        setIsChangePasswordModalOpen(true)
+    function resetChangeVaultPasswordModal() {
+        setCurrentVaultPassword('')
+        setNewVaultPassword('')
+        setRepeatNewVaultPassword('')
+        setVaultPasswordStatus('')
     }
 
-    function closeChangePasswordModal() {
+    function openChangeLoginPasswordModal() {
+        resetChangeLoginPasswordModal()
+        setIsChangeLoginPasswordModalOpen(true)
+    }
+
+    function closeChangeLoginPasswordModal() {
         if (isChangingPassword) return
-        resetChangePasswordModal()
-        setIsChangePasswordModalOpen(false)
+        resetChangeLoginPasswordModal()
+        setIsChangeLoginPasswordModalOpen(false)
+    }
+
+    function openChangeVaultPasswordModal() {
+        resetChangeVaultPasswordModal()
+        setIsChangeVaultPasswordModalOpen(true)
+    }
+
+    function closeChangeVaultPasswordModal() {
+        if (isChangingVaultPassword) return
+        resetChangeVaultPasswordModal()
+        setIsChangeVaultPasswordModalOpen(false)
     }
 
     async function handleChangeLoginPassword() {
@@ -117,7 +144,7 @@ export function HomeView({
             }
 
             onStatusChange?.('La contraseña de login se cambió correctamente.')
-            closeChangePasswordModal()
+            closeChangeLoginPasswordModal()
         } catch (error) {
             setPasswordStatus(
                 error instanceof Error
@@ -126,6 +153,74 @@ export function HomeView({
             )
         } finally {
             setIsChangingPassword(false)
+        }
+    }
+
+    async function handleChangeVaultPassword() {
+        const trimmedCurrentVaultPassword = currentVaultPassword.trim()
+        const trimmedNewVaultPassword = newVaultPassword.trim()
+        const trimmedRepeatNewVaultPassword = repeatNewVaultPassword.trim()
+
+        if (!trimmedCurrentVaultPassword) {
+            setVaultPasswordStatus('Ingresá tu master password actual.')
+            return
+        }
+
+        if (!trimmedNewVaultPassword) {
+            setVaultPasswordStatus('Ingresá una nueva master password.')
+            return
+        }
+
+        if (trimmedNewVaultPassword.length < 4) {
+            setVaultPasswordStatus(
+                'La nueva master password debe tener al menos 4 caracteres.',
+            )
+            return
+        }
+
+        if (!trimmedRepeatNewVaultPassword) {
+            setVaultPasswordStatus('Repetí la nueva master password.')
+            return
+        }
+
+        if (trimmedNewVaultPassword !== trimmedRepeatNewVaultPassword) {
+            setVaultPasswordStatus('La repetición de la nueva master password no coincide.')
+            return
+        }
+
+        if (trimmedCurrentVaultPassword === trimmedNewVaultPassword) {
+            setVaultPasswordStatus(
+                'La nueva master password no puede ser igual a la actual.',
+            )
+            return
+        }
+
+        setIsChangingVaultPassword(true)
+        setVaultPasswordStatus('')
+
+        try {
+            const result = await window.api.changeVaultPassword(
+                trimmedCurrentVaultPassword,
+                trimmedNewVaultPassword,
+            )
+
+            if (!result.ok) {
+                setVaultPasswordStatus(
+                    result.error ?? 'No se pudo cambiar la master password.',
+                )
+                return
+            }
+
+            onStatusChange?.('La master password se cambió correctamente.')
+            closeChangeVaultPasswordModal()
+        } catch (error) {
+            setVaultPasswordStatus(
+                error instanceof Error
+                    ? error.message
+                    : 'No se pudo cambiar la master password.',
+            )
+        } finally {
+            setIsChangingVaultPassword(false)
         }
     }
 
@@ -162,8 +257,17 @@ export function HomeView({
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-                    <button style={secondaryButtonStyle} onClick={openChangePasswordModal}>
+                    <button
+                        style={secondaryButtonStyle}
+                        onClick={openChangeLoginPasswordModal}
+                    >
                         Cambiar contraseña de login
+                    </button>
+                    <button
+                        style={secondaryButtonStyle}
+                        onClick={openChangeVaultPasswordModal}
+                    >
+                        Cambiar master password
                     </button>
                     <button style={dangerButtonStyle} onClick={onDeleteUser}>
                         Eliminar usuario
@@ -176,11 +280,8 @@ export function HomeView({
                 <div style={statusBoxStyle}>{status}</div>
             </div>
 
-            {isChangePasswordModalOpen ? (
-                <div
-                    style={modalOverlayStyle}
-                    onClick={closeChangePasswordModal}
-                >
+            {isChangeLoginPasswordModalOpen ? (
+                <div style={modalOverlayStyle} onClick={closeChangeLoginPasswordModal}>
                     <div
                         style={{ ...modalCardStyle, maxWidth: 520 }}
                         onClick={(event) => event.stopPropagation()}
@@ -239,7 +340,7 @@ export function HomeView({
                         <div style={modalButtonsStyle}>
                             <button
                                 style={secondaryButtonStyle}
-                                onClick={closeChangePasswordModal}
+                                onClick={closeChangeLoginPasswordModal}
                                 disabled={isChangingPassword}
                             >
                                 Cancelar
@@ -252,6 +353,90 @@ export function HomeView({
                                 {isChangingPassword
                                     ? 'Cambiando...'
                                     : 'Guardar nueva contraseña'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {isChangeVaultPasswordModalOpen ? (
+                <div style={modalOverlayStyle} onClick={closeChangeVaultPasswordModal}>
+                    <div
+                        style={{ ...modalCardStyle, maxWidth: 520 }}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h2 style={modalTitleStyle}>Cambiar master password</h2>
+                        <p style={modalTextStyle}>
+                            Esta contraseña protege el cifrado del vault y de las anotaciones.
+                            Durante el cambio, los archivos cifrados se vuelven a guardar con la
+                            nueva master password.
+                        </p>
+
+                        <label style={labelStyle} htmlFor="change-vault-current-password">
+                            Master password actual
+                        </label>
+                        <input
+                            id="change-vault-current-password"
+                            type="password"
+                            value={currentVaultPassword}
+                            onChange={(event) =>
+                                setCurrentVaultPassword(event.target.value)
+                            }
+                            style={inputStyle}
+                            autoComplete="current-password"
+                            disabled={isChangingVaultPassword}
+                        />
+
+                        <label style={labelStyle} htmlFor="change-vault-new-password">
+                            Nueva master password
+                        </label>
+                        <input
+                            id="change-vault-new-password"
+                            type="password"
+                            value={newVaultPassword}
+                            onChange={(event) => setNewVaultPassword(event.target.value)}
+                            style={inputStyle}
+                            autoComplete="new-password"
+                            disabled={isChangingVaultPassword}
+                        />
+
+                        <label style={labelStyle} htmlFor="change-vault-repeat-password">
+                            Repetir nueva master password
+                        </label>
+                        <input
+                            id="change-vault-repeat-password"
+                            type="password"
+                            value={repeatNewVaultPassword}
+                            onChange={(event) =>
+                                setRepeatNewVaultPassword(event.target.value)
+                            }
+                            style={inputStyle}
+                            autoComplete="new-password"
+                            disabled={isChangingVaultPassword}
+                        />
+
+                        {vaultPasswordStatus ? (
+                            <div style={{ ...statusBoxStyle, marginTop: 14 }}>
+                                {vaultPasswordStatus}
+                            </div>
+                        ) : null}
+
+                        <div style={modalButtonsStyle}>
+                            <button
+                                style={secondaryButtonStyle}
+                                onClick={closeChangeVaultPasswordModal}
+                                disabled={isChangingVaultPassword}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                style={primaryButtonStyle}
+                                onClick={handleChangeVaultPassword}
+                                disabled={isChangingVaultPassword}
+                            >
+                                {isChangingVaultPassword
+                                    ? 'Cambiando...'
+                                    : 'Guardar nueva master password'}
                             </button>
                         </div>
                     </div>

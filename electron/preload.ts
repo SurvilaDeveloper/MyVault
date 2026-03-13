@@ -18,6 +18,13 @@ contextBridge.exposeInMainWorld('api', {
   changeLoginPassword: (currentPassword: string, newPassword: string) =>
     ipcRenderer.invoke('auth:changeLoginPassword', currentPassword, newPassword),
 
+  changeVaultPassword: (currentVaultPassword: string, newVaultPassword: string) =>
+    ipcRenderer.invoke(
+      'auth:changeVaultPassword',
+      currentVaultPassword,
+      newVaultPassword,
+    ),
+
   deleteCurrentUser: () => ipcRenderer.invoke('auth:deleteCurrentUser'),
 
   loadVault: () => ipcRenderer.invoke('vault:load'),

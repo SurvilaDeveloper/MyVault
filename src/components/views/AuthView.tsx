@@ -1,5 +1,6 @@
 //src/components/views/AuthView.tsx
-import type { Dispatch, SetStateAction } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import {
     authGridStyle,
     authWrapperStyle,
@@ -56,6 +57,71 @@ export function AuthView(props: AuthViewProps) {
         onCreateUser,
     } = props
 
+    const [showLoginPassword, setShowLoginPassword] = useState(false)
+    const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+    const [showRegisterPasswordConfirm, setShowRegisterPasswordConfirm] = useState(false)
+    const [showRegisterVaultPassword, setShowRegisterVaultPassword] = useState(false)
+    const [showRegisterVaultPasswordConfirm, setShowRegisterVaultPasswordConfirm] =
+        useState(false)
+
+    function renderPasswordField({
+        label,
+        value,
+        onChange,
+        placeholder,
+        visible,
+        onToggleVisible,
+    }: {
+        label: string
+        value: string
+        onChange: (value: string) => void
+        placeholder: string
+        visible: boolean
+        onToggleVisible: () => void
+    }) {
+        return (
+            <>
+                <label style={labelStyle}>{label}</label>
+
+                <div style={{ position: 'relative', display: 'flex' }}>
+                    <input
+                        style={{
+                            ...inputStyle,
+                            width: '100%',
+                            paddingRight: 40,
+                        }}
+                        type={visible ? 'text' : 'password'}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        placeholder={placeholder}
+                    />
+
+                    <button
+                        type="button"
+                        onClick={onToggleVisible}
+                        title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        style={{
+                            position: 'absolute',
+                            right: 8,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: 4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0.7,
+                        }}
+                    >
+                        {visible ? <EyeOff size={18} color='white' /> : <Eye size={18} color='white' />}
+                    </button>
+                </div>
+            </>
+        )
+    }
+
     return (
         <div style={pageStyle}>
             <div style={authWrapperStyle}>
@@ -90,14 +156,15 @@ export function AuthView(props: AuthViewProps) {
                             placeholder="Tu usuario"
                         />
 
-                        <label style={labelStyle}>Contraseña de login</label>
-                        <input
-                            style={inputStyle}
-                            type="password"
-                            value={loginPassword}
-                            onChange={(e) => setLoginPassword(e.target.value)}
-                            placeholder="Tu contraseña de login"
-                        />
+                        {renderPasswordField({
+                            label: 'Contraseña de login',
+                            value: loginPassword,
+                            onChange: setLoginPassword,
+                            placeholder: 'Tu contraseña de login',
+                            visible: showLoginPassword,
+                            onToggleVisible: () =>
+                                setShowLoginPassword((v) => !v),
+                        })}
 
                         <button style={primaryButtonStyle} onClick={onLogin}>
                             Ingresar
@@ -115,41 +182,45 @@ export function AuthView(props: AuthViewProps) {
                             placeholder="Elegí un usuario"
                         />
 
-                        <label style={labelStyle}>Contraseña de login</label>
-                        <input
-                            style={inputStyle}
-                            type="password"
-                            value={registerPassword}
-                            onChange={(e) => setRegisterPassword(e.target.value)}
-                            placeholder="Elegí una contraseña de login"
-                        />
+                        {renderPasswordField({
+                            label: 'Contraseña de login',
+                            value: registerPassword,
+                            onChange: setRegisterPassword,
+                            placeholder: 'Elegí una contraseña de login',
+                            visible: showRegisterPassword,
+                            onToggleVisible: () =>
+                                setShowRegisterPassword((v) => !v),
+                        })}
 
-                        <label style={labelStyle}>Confirmar contraseña de login</label>
-                        <input
-                            style={inputStyle}
-                            type="password"
-                            value={registerPasswordConfirm}
-                            onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
-                            placeholder="Repetí la contraseña de login"
-                        />
+                        {renderPasswordField({
+                            label: 'Confirmar contraseña de login',
+                            value: registerPasswordConfirm,
+                            onChange: setRegisterPasswordConfirm,
+                            placeholder: 'Repetí la contraseña de login',
+                            visible: showRegisterPasswordConfirm,
+                            onToggleVisible: () =>
+                                setShowRegisterPasswordConfirm((v) => !v),
+                        })}
 
-                        <label style={labelStyle}>Master password del vault</label>
-                        <input
-                            style={inputStyle}
-                            type="password"
-                            value={registerVaultPassword}
-                            onChange={(e) => setRegisterVaultPassword(e.target.value)}
-                            placeholder="Elegí una master password"
-                        />
+                        {renderPasswordField({
+                            label: 'Master password del vault',
+                            value: registerVaultPassword,
+                            onChange: setRegisterVaultPassword,
+                            placeholder: 'Elegí una master password',
+                            visible: showRegisterVaultPassword,
+                            onToggleVisible: () =>
+                                setShowRegisterVaultPassword((v) => !v),
+                        })}
 
-                        <label style={labelStyle}>Confirmar master password</label>
-                        <input
-                            style={inputStyle}
-                            type="password"
-                            value={registerVaultPasswordConfirm}
-                            onChange={(e) => setRegisterVaultPasswordConfirm(e.target.value)}
-                            placeholder="Repetí la master password"
-                        />
+                        {renderPasswordField({
+                            label: 'Confirmar master password',
+                            value: registerVaultPasswordConfirm,
+                            onChange: setRegisterVaultPasswordConfirm,
+                            placeholder: 'Repetí la master password',
+                            visible: showRegisterVaultPasswordConfirm,
+                            onToggleVisible: () =>
+                                setShowRegisterVaultPasswordConfirm((v) => !v),
+                        })}
 
                         <button style={secondaryButtonStyle} onClick={onCreateUser}>
                             Crear usuario

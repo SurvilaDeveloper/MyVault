@@ -13,7 +13,7 @@ export const pageStyle: CSSProperties = {
         'radial-gradient(circle at top, #1e293b 0%, #0f172a 35%, #020617 100%)',
     fontFamily: appFontFamily,
     color: '#e5e7eb',
-    padding: 18,
+    padding: 14,
     boxSizing: 'border-box',
 }
 
@@ -24,7 +24,7 @@ export const authWrapperStyle: CSSProperties = {
 }
 
 export const heroStyle: CSSProperties = {
-    marginBottom: 18,
+    marginBottom: 14,
     fontFamily: appFontFamily,
 }
 
@@ -96,9 +96,9 @@ export const homeCardTextStyle: CSSProperties = {
 
 export const labelStyle: CSSProperties = {
     display: 'block',
-    marginBottom: 6,
-    marginTop: 8,
-    fontSize: 13,
+    marginBottom: 4,
+    marginTop: 6,
+    fontSize: 12,
     fontWeight: 600,
     color: '#cbd5e1',
     fontFamily: appFontFamily,

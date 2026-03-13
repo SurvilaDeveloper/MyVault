@@ -20,9 +20,25 @@ import {
     verifyVaultPassword,
     deleteCurrentUser,
     changeLoginPassword,
+    updateVaultPasswordHash,
+    cleanupAuthTempFile,
 } from './auth'
-import { loadVault, saveVault, type VaultData } from './vault'
-import { loadNotesVault, saveNotesVault, type NotesData } from './notesVault'
+import {
+    loadVault,
+    saveVault,
+    encryptVaultData,
+    replaceVaultFileAtomically,
+    cleanupVaultTempFile,
+    type VaultData,
+} from './vault'
+import {
+    loadNotesVault,
+    saveNotesVault,
+    encryptNotesData,
+    replaceNotesFileAtomically,
+    cleanupNotesTempFile,
+    type NotesData,
+} from './notesVault'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -435,6 +451,14 @@ function copySecretToClipboardWithAutoClear(secret: string) {
     }, CLIPBOARD_AUTO_CLEAR_MS)
 }
 
+async function cleanupMasterPasswordChangeTempFiles(username: string) {
+    await Promise.allSettled([
+        cleanupVaultTempFile(username),
+        cleanupNotesTempFile(username),
+        cleanupAuthTempFile(),
+    ])
+}
+
 ipcMain.handle('app:get-version', () => {
     return app.getVersion()
 })
@@ -519,6 +543,107 @@ ipcMain.handle('auth:unlockVault', async (_event, vaultPassword: string) => {
         }
     }
 })
+
+ipcMain.handle(
+    'auth:changeLoginPassword',
+    async (_event, currentPassword: string, newPassword: string) => {
+        try {
+            const user = getCurrentUser()
+
+            if (!user) {
+                return {
+                    ok: false,
+                    error: 'No hay sesión iniciada.',
+                }
+            }
+
+            return await changeLoginPassword(user, currentPassword, newPassword)
+        } catch (error) {
+            return {
+                ok: false,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : 'No se pudo cambiar la contraseña de login.',
+            }
+        }
+    },
+)
+
+ipcMain.handle(
+    'auth:changeVaultPassword',
+    async (_event, currentVaultPassword: string, newVaultPassword: string) => {
+        const user = getCurrentUser()
+
+        if (!user) {
+            return {
+                ok: false,
+                error: 'No hay sesión iniciada.',
+            }
+        }
+
+        const trimmedCurrentVaultPassword = currentVaultPassword.trim()
+        const trimmedNewVaultPassword = newVaultPassword.trim()
+
+        if (!trimmedCurrentVaultPassword) {
+            return {
+                ok: false,
+                error: 'La master password actual no puede estar vacía.',
+            }
+        }
+
+        if (!trimmedNewVaultPassword) {
+            return {
+                ok: false,
+                error: 'La nueva master password no puede estar vacía.',
+            }
+        }
+
+        if (trimmedCurrentVaultPassword === trimmedNewVaultPassword) {
+            return {
+                ok: false,
+                error: 'La nueva master password no puede ser igual a la actual.',
+            }
+        }
+
+        try {
+            const verifyResult = await verifyVaultPassword(user, trimmedCurrentVaultPassword)
+
+            if (!verifyResult.ok) {
+                return verifyResult
+            }
+
+            const vaultData = await loadVault(user, trimmedCurrentVaultPassword)
+            const notesData = await loadNotesVault(user, trimmedCurrentVaultPassword)
+
+            const newVaultPayload = encryptVaultData(trimmedNewVaultPassword, vaultData)
+            const newNotesPayload = encryptNotesData(trimmedNewVaultPassword, notesData)
+
+            await replaceVaultFileAtomically(user, newVaultPayload)
+            await replaceNotesFileAtomically(user, newNotesPayload)
+
+            const updateHashResult = await updateVaultPasswordHash(user, trimmedNewVaultPassword)
+
+            if (!updateHashResult.ok) {
+                return updateHashResult
+            }
+
+            unlockedVaultPassword = trimmedNewVaultPassword
+
+            return { ok: true }
+        } catch (error) {
+            await cleanupMasterPasswordChangeTempFiles(user)
+
+            return {
+                ok: false,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : 'No se pudo cambiar la master password.',
+            }
+        }
+    },
+)
 
 ipcMain.handle('auth:logout', async () => {
     logout()
@@ -671,32 +796,6 @@ ipcMain.handle('app:cancel-close-after-prompt', async () => {
     closePromptPending = false
     return { ok: true }
 })
-
-ipcMain.handle(
-    'auth:changeLoginPassword',
-    async (_event, currentPassword: string, newPassword: string) => {
-        try {
-            const user = getCurrentUser()
-
-            if (!user) {
-                return {
-                    ok: false,
-                    error: 'No hay sesión iniciada.',
-                }
-            }
-
-            return await changeLoginPassword(user, currentPassword, newPassword)
-        } catch (error) {
-            return {
-                ok: false,
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : 'No se pudo cambiar la contraseña de login.',
-            }
-        }
-    },
-)
 
 app.whenReady().then(() => {
     applyNativeDarkTheme()
