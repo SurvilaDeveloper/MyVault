@@ -35,10 +35,13 @@ let unlockedVaultPassword: string | null = null
 let hasUnsavedNoteChanges = false
 let isForceClosing = false
 let closePromptPending = false
+let clipboardClearTimeout: NodeJS.Timeout | null = null
+let lastCopiedSecret: string | null = null
 
 const isDev = !app.isPackaged
 const WINDOW_BACKGROUND = '#020617'
 const AUX_WINDOW_BACKGROUND = '#0f172a'
+const CLIPBOARD_AUTO_CLEAR_MS = 30_000
 
 function getWindowIconPath() {
     if (isDev) {
@@ -119,8 +122,8 @@ function createWindow() {
     win = new BrowserWindow({
         width: 1180,
         height: 730,
-        minWidth: 940,
-        minHeight: 680,
+        minWidth: 256,
+        minHeight: 256,
         title: 'MyVault',
         icon: getWindowIconPath(),
         backgroundColor: WINDOW_BACKGROUND,
@@ -401,6 +404,36 @@ function notesFilePath(username: string) {
     return path.join(app.getPath('userData'), 'vaults', `${username}.notes.vault`)
 }
 
+function clearClipboardAutoClearTimer() {
+    if (clipboardClearTimeout) {
+        clearTimeout(clipboardClearTimeout)
+        clipboardClearTimeout = null
+    }
+}
+
+function resetClipboardSecretTracking() {
+    clearClipboardAutoClearTimer()
+    lastCopiedSecret = null
+}
+
+function copySecretToClipboardWithAutoClear(secret: string) {
+    clipboard.writeText(secret)
+    lastCopiedSecret = secret
+
+    clearClipboardAutoClearTimer()
+
+    clipboardClearTimeout = setTimeout(() => {
+        const currentClipboard = clipboard.readText()
+
+        if (lastCopiedSecret && currentClipboard === lastCopiedSecret) {
+            clipboard.clear()
+        }
+
+        clipboardClearTimeout = null
+        lastCopiedSecret = null
+    }, CLIPBOARD_AUTO_CLEAR_MS)
+}
+
 ipcMain.handle('app:get-version', () => {
     return app.getVersion()
 })
@@ -408,6 +441,28 @@ ipcMain.handle('app:get-version', () => {
 ipcMain.handle('app:copy-to-clipboard', async (_event, text: string) => {
     clipboard.writeText(text)
     return { ok: true }
+})
+
+ipcMain.handle('app:copy-secret-to-clipboard', async (_event, text: string) => {
+    try {
+        if (typeof text !== 'string') {
+            return {
+                ok: false,
+                error: 'No se pudo copiar el contenido al portapapeles.',
+            }
+        }
+
+        copySecretToClipboardWithAutoClear(text)
+        return { ok: true }
+    } catch (error) {
+        return {
+            ok: false,
+            error:
+                error instanceof Error
+                    ? error.message
+                    : 'No se pudo copiar el contenido al portapapeles.',
+        }
+    }
 })
 
 ipcMain.handle(
@@ -468,6 +523,7 @@ ipcMain.handle('auth:logout', async () => {
     logout()
     unlockedVaultPassword = null
     hasUnsavedNoteChanges = false
+    resetClipboardSecretTracking()
     return { ok: true }
 })
 
@@ -492,6 +548,7 @@ ipcMain.handle('auth:deleteCurrentUser', async () => {
 
         unlockedVaultPassword = null
         hasUnsavedNoteChanges = false
+        resetClipboardSecretTracking()
 
         return result
     } catch (error) {
@@ -630,6 +687,7 @@ app.on('activate', () => {
 })
 
 app.on('window-all-closed', () => {
+    resetClipboardSecretTracking()
     if (process.platform !== 'darwin') app.quit()
 })
 

@@ -1,5 +1,5 @@
 //src/App.tsx
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AuthView } from './components/views/AuthView'
 import { HomeView } from './components/views/HomeView'
 import { NotesView } from './components/views/NotesView'
@@ -49,10 +49,32 @@ export default function App() {
   const [savingNotes, setSavingNotes] = useState(false)
   const [showPasswords, setShowPasswords] = useState(false)
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({})
+  const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null)
 
   const [unsavedPromptAction, setUnsavedPromptAction] =
     useState<UnsavedPromptAction | null>(null)
   const [pendingNoteSelectionId, setPendingNoteSelectionId] = useState<string | null>(null)
+
+  const inactivityTimeoutRef = useRef<number | null>(null)
+  const copiedFeedbackTimeoutRef = useRef<number | null>(null)
+  const autoLogoutRunningRef = useRef(false)
+
+  const viewRef = useRef<View>(view)
+  const noteHasUnsavedChangesRef = useRef(false)
+  const noteDraftRef = useRef<Note | null>(noteDraft)
+  const notesRef = useRef<Note[]>(notes)
+
+  useEffect(() => {
+    viewRef.current = view
+  }, [view])
+
+  useEffect(() => {
+    noteDraftRef.current = noteDraft
+  }, [noteDraft])
+
+  useEffect(() => {
+    notesRef.current = notes
+  }, [notes])
 
   useEffect(() => {
     if (view !== 'passwords') return
@@ -139,6 +161,10 @@ export default function App() {
   const noteHasUnsavedChanges = useMemo(() => {
     return !areNotesEqual(noteDraft, savedSelectedNote)
   }, [noteDraft, savedSelectedNote])
+
+  useEffect(() => {
+    noteHasUnsavedChangesRef.current = noteHasUnsavedChanges
+  }, [noteHasUnsavedChanges])
 
   const effectiveNotesForSidebar = useMemo(() => {
     if (!noteDraft) return notes
@@ -295,12 +321,45 @@ export default function App() {
       delete next[entry.id]
       return next
     })
+
+    if (copiedEntryId === entry.id) {
+      if (copiedFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copiedFeedbackTimeoutRef.current)
+        copiedFeedbackTimeoutRef.current = null
+      }
+      setCopiedEntryId(null)
+    }
+
     setStatus(`Cuenta eliminada: ${entry.account || 'sin nombre'}.`)
   }
 
   async function handleCopyPassword(entry: Entry) {
-    await navigator.clipboard.writeText(entry.password)
-    setStatus(`Contraseña copiada: ${entry.account || 'sin nombre'}`)
+    if (!entry.password) {
+      setStatus('No hay contraseña para copiar en esta cuenta.')
+      return
+    }
+
+    const result = await window.api.copySecretToClipboard(entry.password)
+
+    if (!result.ok) {
+      setStatus(result.error ?? 'No se pudo copiar la contraseña.')
+      return
+    }
+
+    if (copiedFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copiedFeedbackTimeoutRef.current)
+      copiedFeedbackTimeoutRef.current = null
+    }
+
+    setCopiedEntryId(entry.id)
+    setStatus(
+      `Contraseña copiada: ${entry.account || 'sin nombre'}. Se limpiará del portapapeles automáticamente en 30 segundos.`,
+    )
+
+    copiedFeedbackTimeoutRef.current = window.setTimeout(() => {
+      setCopiedEntryId((current) => (current === entry.id ? null : current))
+      copiedFeedbackTimeoutRef.current = null
+    }, 2000)
   }
 
   async function handleSaveCurrentNote(): Promise<boolean> {
@@ -338,6 +397,50 @@ export default function App() {
     }
 
     setStatus('Anotación guardada.')
+    return true
+  }
+
+  async function handleAutoSaveCurrentNote(): Promise<boolean> {
+    const currentDraft = noteDraftRef.current
+    const currentNotes = notesRef.current
+
+    if (!currentDraft) return true
+
+    const normalizedTitle = currentDraft.title.trim()
+    const normalizedContent = currentDraft.content
+
+    const nextNote: Note = {
+      ...currentDraft,
+      title: normalizedTitle,
+      content: normalizedContent,
+    }
+
+    const exists = currentNotes.some((note) => note.id === nextNote.id)
+
+    const nextNotes = exists
+      ? currentNotes.map((note) => (note.id === nextNote.id ? nextNote : note))
+      : [nextNote, ...currentNotes]
+
+    setNotes(nextNotes)
+    setSelectedNoteId(nextNote.id)
+    setNoteDraft(nextNote)
+
+    notesRef.current = nextNotes
+    noteDraftRef.current = nextNote
+
+    setSavingNotes(true)
+    setStatus('Guardando anotación automáticamente por inactividad...')
+
+    const result = await window.api.saveNotes({ notes: nextNotes })
+
+    setSavingNotes(false)
+
+    if (!result.ok) {
+      setStatus(result.error ?? 'No se pudo guardar la anotación antes del cierre automático.')
+      return false
+    }
+
+    setStatus('Anotación guardada automáticamente.')
     return true
   }
 
@@ -398,15 +501,11 @@ export default function App() {
     setStatus('Anotación eliminada.')
   }
 
-  async function handleLogout() {
-    if (view === 'notes' && noteHasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'Tenés cambios sin guardar en la anotación actual. ¿Seguro que querés cerrar sesión?',
-      )
-
-      if (!confirmed) return
+  async function performLogoutCleanup(statusMessage: string) {
+    if (copiedFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copiedFeedbackTimeoutRef.current)
+      copiedFeedbackTimeoutRef.current = null
     }
-
     await window.api.logout()
     setView('auth')
     setEntries([])
@@ -421,7 +520,41 @@ export default function App() {
     setUnlockPassword('')
     setShowPasswords(false)
     setVisiblePasswords({})
-    setStatus('Sesión cerrada.')
+    setCopiedEntryId(null)
+    setStatus(statusMessage)
+
+    noteDraftRef.current = null
+    notesRef.current = []
+    noteHasUnsavedChangesRef.current = false
+  }
+
+  async function handleLogout() {
+    if (view === 'notes' && noteHasUnsavedChanges) {
+      const confirmed = window.confirm(
+        'Tenés cambios sin guardar en la anotación actual. ¿Seguro que querés cerrar sesión?',
+      )
+
+      if (!confirmed) return
+    }
+
+    await performLogoutCleanup('Sesión cerrada.')
+  }
+
+  async function handleAutoLogout() {
+    if (autoLogoutRunningRef.current) return
+    autoLogoutRunningRef.current = true
+
+    try {
+      if (viewRef.current === 'notes' && noteHasUnsavedChangesRef.current) {
+        const ok = await handleAutoSaveCurrentNote()
+
+        if (!ok) return
+      }
+
+      await performLogoutCleanup('Sesión cerrada por inactividad durante más de 5 minutos.')
+    } finally {
+      autoLogoutRunningRef.current = false
+    }
   }
 
   async function handleDeleteCurrentUser() {
@@ -461,7 +594,12 @@ export default function App() {
     setUnlockPassword('')
     setShowPasswords(false)
     setVisiblePasswords({})
+    setCopiedEntryId(null)
     setStatus(`Usuario eliminado: ${result.username ?? 'desconocido'}.`)
+
+    noteDraftRef.current = null
+    notesRef.current = []
+    noteHasUnsavedChangesRef.current = false
   }
 
   function updateEntry(index: number, patch: Partial<Entry>) {
@@ -585,6 +723,59 @@ export default function App() {
     }
   }
 
+  useEffect(() => {
+    return () => {
+      if (copiedFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copiedFeedbackTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const INACTIVITY_MS = 5 * 60 * 1000
+
+    function clearInactivityTimer() {
+      if (inactivityTimeoutRef.current !== null) {
+        window.clearTimeout(inactivityTimeoutRef.current)
+        inactivityTimeoutRef.current = null
+      }
+    }
+
+    function restartInactivityTimer() {
+      clearInactivityTimer()
+
+      if (viewRef.current === 'auth') return
+      if (autoLogoutRunningRef.current) return
+
+      inactivityTimeoutRef.current = window.setTimeout(() => {
+        void handleAutoLogout()
+      }, INACTIVITY_MS)
+    }
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'mousemove',
+      'mousedown',
+      'keydown',
+      'touchstart',
+      'wheel',
+      'scroll',
+    ]
+
+    for (const eventName of activityEvents) {
+      window.addEventListener(eventName, restartInactivityTimer, { passive: true })
+    }
+
+    restartInactivityTimer()
+
+    return () => {
+      clearInactivityTimer()
+
+      for (const eventName of activityEvents) {
+        window.removeEventListener(eventName, restartInactivityTimer)
+      }
+    }
+  }, [view])
+
   const selectedNoteExistsInSavedList = selectedNoteId
     ? notes.some((note) => note.id === selectedNoteId)
     : false
@@ -681,6 +872,7 @@ export default function App() {
         savingPasswords={savingPasswords}
         showPasswords={showPasswords}
         visiblePasswords={visiblePasswords}
+        copiedEntryId={copiedEntryId}
         status={status}
         onGoHome={() => setView('home')}
         onToggleShowPasswords={() => setShowPasswords((v) => !v)}

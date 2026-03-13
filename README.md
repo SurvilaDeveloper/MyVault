@@ -17,14 +17,16 @@ localmente en el dispositivo**.
 
 # Características
 
--   🔐 Almacenamiento **cifrado local**
--   👤 **Sistema de usuarios**
--   🔑 Vault protegido con contraseña independiente
--   📝 Gestor de **notas seguras**
--   🌙 Interfaz moderna con **tema oscuro**
--   💻 Aplicación de **escritorio**
--   📂 Datos almacenados **solo en el dispositivo**
--   🚫 **Sin conexión obligatoria a internet**
+- 🔐 Almacenamiento **cifrado local**
+- 👤 **Sistema de usuarios**
+- 🔑 Vault protegido con contraseña independiente
+- 📝 Gestor de **notas seguras**
+- ⏱ **Auto-bloqueo del vault tras 5 minutos de inactividad**
+- 📋 **Borrado automático del portapapeles** después de copiar contraseñas
+- 🌙 Interfaz moderna con **tema oscuro**
+- 💻 Aplicación de **escritorio**
+- 📂 Datos almacenados **solo en el dispositivo**
+- 🚫 **Sin conexión obligatoria a internet**
 
 ------------------------------------------------------------------------
 
@@ -61,12 +63,14 @@ para mejorar la seguridad.
 
 MyVault fue desarrollado siguiendo buenas prácticas de seguridad:
 
--   cifrado del vault protegido por contraseña
--   aislamiento de contexto en Electron
--   bloqueo de navegación externa dentro de la aplicación
--   apertura de enlaces externos mediante el navegador del sistema
--   sandbox habilitado
--   comunicación controlada mediante IPC
+- cifrado del vault protegido por contraseña
+- auto-bloqueo automático de la sesión tras 5 minutos de inactividad
+- borrado automático del portapapeles después de copiar contraseñas
+- aislamiento de contexto en Electron
+- bloqueo de navegación externa dentro de la aplicación
+- apertura de enlaces externos mediante el navegador del sistema
+- sandbox habilitado
+- comunicación controlada mediante IPC
 
 Los datos se almacenan localmente en:
 
@@ -163,8 +167,6 @@ Los binarios se generarán en:
 Funciones planificadas:
 
 -   generador de contraseñas seguras
--   auto‑bloqueo del vault por inactividad
--   autodestrucción del portapapeles
 -   importación y exportación de vault
 -   mejoras de interfaz
 -   soporte multiplataforma (Linux y macOS)

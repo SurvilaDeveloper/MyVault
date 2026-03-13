@@ -1,6 +1,14 @@
+html,
+body,
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
   text-align: center;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }

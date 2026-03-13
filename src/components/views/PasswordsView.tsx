@@ -1,5 +1,5 @@
 //src/components/views/PasswordsView.tsx
-import { Copy, Eye, EyeOff, Home, LogOut, Plus, Save, Trash2 } from 'lucide-react'
+import { Check, Copy, Eye, EyeOff, Home, LogOut, Plus, Save, Trash2 } from 'lucide-react'
 import type { Entry } from '../../types/app-types'
 import {
     appShellStyle,
@@ -21,6 +21,7 @@ type PasswordsViewProps = {
     savingPasswords: boolean
     showPasswords: boolean
     visiblePasswords: Record<string, boolean>
+    copiedEntryId: string | null
     status: string
     onGoHome: () => void
     onToggleShowPasswords: () => void
@@ -39,6 +40,7 @@ export function PasswordsView({
     savingPasswords,
     showPasswords,
     visiblePasswords,
+    copiedEntryId,
     status,
     onGoHome,
     onToggleShowPasswords,
@@ -105,6 +107,7 @@ export function PasswordsView({
                     ) : (
                         entries.map((entry, i) => {
                             const isVisible = showPasswords || !!visiblePasswords[entry.id]
+                            const isCopied = copiedEntryId === entry.id
 
                             return (
                                 <div key={entry.id} style={rowStyle4}>
@@ -139,10 +142,14 @@ export function PasswordsView({
                                         </IconButton>
 
                                         <IconButton
-                                            title="Copiar contraseña"
+                                            title={
+                                                isCopied
+                                                    ? 'Contraseña copiada'
+                                                    : 'Copiar contraseña'
+                                            }
                                             onClick={() => onCopyPassword(entry)}
                                         >
-                                            <Copy size={16} />
+                                            {isCopied ? <Check size={16} /> : <Copy size={16} />}
                                         </IconButton>
 
                                         <IconButton

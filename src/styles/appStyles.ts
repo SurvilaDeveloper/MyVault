@@ -2,7 +2,7 @@
 import type { CSSProperties } from 'react'
 
 export const pageStyle: CSSProperties = {
-    minHeight: '100vh',
+    minHeight: "96dvh",
     background:
         'radial-gradient(circle at top, #1e293b 0%, #0f172a 35%, #020617 100%)',
     fontFamily: 'Inter, Arial, sans-serif',
@@ -65,8 +65,8 @@ export const homeCardStyle: CSSProperties = {
 
 export const cardTitleStyle: CSSProperties = {
     marginTop: 0,
-    marginBottom: 14,
-    fontSize: 21,
+    marginBottom: 12,
+    fontSize: 18,
     color: '#f8fafc',
 }
 
@@ -89,10 +89,10 @@ export const labelStyle: CSSProperties = {
 
 export const inputStyle: CSSProperties = {
     width: '100%',
-    padding: '10px 12px',
+    padding: '8px 10px',
     borderRadius: 10,
     border: '1px solid #334155',
-    fontSize: 14,
+    fontSize: 12,
     boxSizing: 'border-box',
     outline: 'none',
     background: '#0f172a',
@@ -114,7 +114,7 @@ export const searchInputStyle: CSSProperties = {
 
 export const textareaStyle: CSSProperties = {
     width: '100%',
-    minHeight: 280,
+    minHeight: 256,
     padding: '10px 12px',
     borderRadius: 10,
     border: '1px solid #334155',
@@ -177,8 +177,8 @@ export const statusBoxStyle: CSSProperties = {
     background: 'rgba(15, 23, 42, 0.82)',
     border: '1px solid #243041',
     borderRadius: 12,
-    padding: '12px 14px',
-    color: '#cbd5e1',
+    padding: '10px 12px',
+    color: '#ddcea0',
     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
     fontSize: 13,
 }
@@ -259,7 +259,7 @@ export const notesSidebarStyle: CSSProperties = {
     border: '1px solid #243041',
     borderRadius: 16,
     padding: 14,
-    minHeight: 420,
+    minHeight: 360,
 }
 
 export const notesSidebarHeaderRowStyle: CSSProperties = {

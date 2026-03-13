@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('api', {
   copyToClipboard: (text: string) =>
     ipcRenderer.invoke('app:copy-to-clipboard', text),
 
+  copySecretToClipboard: (text: string) =>
+    ipcRenderer.invoke('app:copy-secret-to-clipboard', text),
+
   onCloseRequested: (callback: () => void) => {
     const listener = () => callback()
     ipcRenderer.on('app:close-requested', listener)

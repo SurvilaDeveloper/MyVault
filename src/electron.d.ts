@@ -86,6 +86,8 @@ declare global {
 
             copyToClipboard: (text: string) => Promise<BasicResult>
 
+            copySecretToClipboard: (text: string) => Promise<BasicResult>
+
             onCloseRequested: (callback: () => void) => () => void
         }
     }
