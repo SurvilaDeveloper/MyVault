@@ -166,6 +166,61 @@ export async function verifyVaultPassword(username: string, vaultPassword: strin
     }
 }
 
+export async function changeLoginPassword(
+    username: string,
+    currentPassword: string,
+    newPassword: string,
+) {
+    const normalizedUsername = normalizeUsername(username)
+    const trimmedCurrentPassword = currentPassword.trim()
+    const trimmedNewPassword = newPassword.trim()
+
+    if (!trimmedCurrentPassword) {
+        return {
+            ok: false,
+            error: 'La contraseña actual no puede estar vacía.',
+        }
+    }
+
+    if (!trimmedNewPassword) {
+        return {
+            ok: false,
+            error: 'La nueva contraseña no puede estar vacía.',
+        }
+    }
+
+    if (trimmedCurrentPassword === trimmedNewPassword) {
+        return {
+            ok: false,
+            error: 'La nueva contraseña no puede ser igual a la actual.',
+        }
+    }
+
+    const data = await readAuth()
+    const user = data.users.find((u) => u.username === normalizedUsername)
+
+    if (!user) {
+        return {
+            ok: false,
+            error: 'Usuario inexistente.',
+        }
+    }
+
+    const valid = await bcrypt.compare(trimmedCurrentPassword, user.passwordHash)
+
+    if (!valid) {
+        return {
+            ok: false,
+            error: 'La contraseña actual es incorrecta.',
+        }
+    }
+
+    user.passwordHash = await bcrypt.hash(trimmedNewPassword, 10)
+    await writeAuth(data)
+
+    return { ok: true }
+}
+
 export async function deleteCurrentUser() {
     if (!currentUser) {
         throw new Error('No hay usuario logueado.')

@@ -19,6 +19,7 @@ import {
     getCurrentUser,
     verifyVaultPassword,
     deleteCurrentUser,
+    changeLoginPassword,
 } from './auth'
 import { loadVault, saveVault, type VaultData } from './vault'
 import { loadNotesVault, saveNotesVault, type NotesData } from './notesVault'
@@ -670,6 +671,32 @@ ipcMain.handle('app:cancel-close-after-prompt', async () => {
     closePromptPending = false
     return { ok: true }
 })
+
+ipcMain.handle(
+    'auth:changeLoginPassword',
+    async (_event, currentPassword: string, newPassword: string) => {
+        try {
+            const user = getCurrentUser()
+
+            if (!user) {
+                return {
+                    ok: false,
+                    error: 'No hay sesión iniciada.',
+                }
+            }
+
+            return await changeLoginPassword(user, currentPassword, newPassword)
+        } catch (error) {
+            return {
+                ok: false,
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : 'No se pudo cambiar la contraseña de login.',
+            }
+        }
+    },
+)
 
 app.whenReady().then(() => {
     applyNativeDarkTheme()

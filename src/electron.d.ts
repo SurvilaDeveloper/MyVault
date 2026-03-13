@@ -66,6 +66,11 @@ declare global {
 
             logout: () => Promise<BasicResult>
 
+            changeLoginPassword: (
+                currentPassword: string,
+                newPassword: string
+            ) => Promise<BasicResult>
+
             deleteCurrentUser: () => Promise<DeleteUserResult>
 
             loadVault: () => Promise<VaultLoadResult>

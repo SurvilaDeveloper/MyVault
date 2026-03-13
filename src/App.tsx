@@ -974,6 +974,7 @@ export default function App() {
         onOpenNotes={() => setView('notes')}
         onDeleteUser={() => handleDeleteCurrentUser()}
         onLogout={() => void handleLogout()}
+        onStatusChange={setStatus}
       />
     )
   } else if (view === 'passwords') {

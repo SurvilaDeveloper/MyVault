@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('api', {
 
   logout: () => ipcRenderer.invoke('auth:logout'),
 
+  changeLoginPassword: (currentPassword: string, newPassword: string) =>
+    ipcRenderer.invoke('auth:changeLoginPassword', currentPassword, newPassword),
+
   deleteCurrentUser: () => ipcRenderer.invoke('auth:deleteCurrentUser'),
 
   loadVault: () => ipcRenderer.invoke('vault:load'),
