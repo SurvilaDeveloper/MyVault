@@ -1,11 +1,17 @@
 //src/styles/appStyles.ts
 import type { CSSProperties } from 'react'
 
+const appFontFamily =
+    '"Segoe UI", Verdana, Tahoma, Arial, sans-serif'
+
+const readableInputFontFamily =
+    'Georgia, "Times New Roman", Times, serif'
+
 export const pageStyle: CSSProperties = {
-    minHeight: "96dvh",
+    minHeight: '96dvh',
     background:
         'radial-gradient(circle at top, #1e293b 0%, #0f172a 35%, #020617 100%)',
-    fontFamily: 'Inter, Arial, sans-serif',
+    fontFamily: appFontFamily,
     color: '#e5e7eb',
     padding: 18,
     boxSizing: 'border-box',
@@ -14,10 +20,12 @@ export const pageStyle: CSSProperties = {
 export const authWrapperStyle: CSSProperties = {
     maxWidth: 1100,
     margin: '0 auto',
+    fontFamily: appFontFamily,
 }
 
 export const heroStyle: CSSProperties = {
     marginBottom: 18,
+    fontFamily: appFontFamily,
 }
 
 export const titleStyle: CSSProperties = {
@@ -25,24 +33,28 @@ export const titleStyle: CSSProperties = {
     fontSize: 35,
     fontWeight: 700,
     color: '#f8fafc',
+    fontFamily: appFontFamily,
 }
 
 export const subtitleStyle: CSSProperties = {
     marginTop: 8,
     fontSize: 15,
     color: '#94a3b8',
+    fontFamily: appFontFamily,
 }
 
 export const authGridStyle: CSSProperties = {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: 16,
+    fontFamily: appFontFamily,
 }
 
 export const homeGridStyle: CSSProperties = {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: 16,
+    fontFamily: appFontFamily,
 }
 
 export const cardStyle: CSSProperties = {
@@ -52,6 +64,7 @@ export const cardStyle: CSSProperties = {
     boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
     border: '1px solid #243041',
     backdropFilter: 'blur(10px)',
+    fontFamily: appFontFamily,
 }
 
 export const homeCardStyle: CSSProperties = {
@@ -61,6 +74,7 @@ export const homeCardStyle: CSSProperties = {
     boxShadow: '0 18px 40px rgba(0, 0, 0, 0.35)',
     border: '1px solid #243041',
     backdropFilter: 'blur(10px)',
+    fontFamily: appFontFamily,
 }
 
 export const cardTitleStyle: CSSProperties = {
@@ -68,6 +82,7 @@ export const cardTitleStyle: CSSProperties = {
     marginBottom: 12,
     fontSize: 18,
     color: '#f8fafc',
+    fontFamily: appFontFamily,
 }
 
 export const homeCardTextStyle: CSSProperties = {
@@ -76,6 +91,7 @@ export const homeCardTextStyle: CSSProperties = {
     color: '#94a3b8',
     lineHeight: 1.45,
     fontSize: 14,
+    fontFamily: appFontFamily,
 }
 
 export const labelStyle: CSSProperties = {
@@ -85,6 +101,7 @@ export const labelStyle: CSSProperties = {
     fontSize: 13,
     fontWeight: 600,
     color: '#cbd5e1',
+    fontFamily: appFontFamily,
 }
 
 export const inputStyle: CSSProperties = {
@@ -92,11 +109,13 @@ export const inputStyle: CSSProperties = {
     padding: '8px 10px',
     borderRadius: 10,
     border: '1px solid #334155',
-    fontSize: 12,
+    fontSize: 14,
     boxSizing: 'border-box',
     outline: 'none',
     background: '#0f172a',
     color: '#f8fafc',
+    fontFamily: readableInputFontFamily,
+    fontVariantLigatures: 'none',
 }
 
 export const searchInputStyle: CSSProperties = {
@@ -110,6 +129,8 @@ export const searchInputStyle: CSSProperties = {
     background: '#0f172a',
     color: '#f8fafc',
     marginBottom: 12,
+    fontFamily: readableInputFontFamily,
+    fontVariantLigatures: 'none',
 }
 
 export const textareaStyle: CSSProperties = {
@@ -124,8 +145,9 @@ export const textareaStyle: CSSProperties = {
     background: '#0f172a',
     color: '#f8fafc',
     resize: 'vertical',
-    fontFamily: 'inherit',
+    fontFamily: readableInputFontFamily,
     lineHeight: 1.45,
+    fontVariantLigatures: 'none',
 }
 
 export const primaryButtonStyle: CSSProperties = {
@@ -138,6 +160,7 @@ export const primaryButtonStyle: CSSProperties = {
     fontWeight: 600,
     background: '#2563eb',
     color: '#fff',
+    fontFamily: appFontFamily,
 }
 
 export const secondaryButtonStyle: CSSProperties = {
@@ -150,6 +173,7 @@ export const secondaryButtonStyle: CSSProperties = {
     fontWeight: 600,
     background: '#111827',
     color: '#e5e7eb',
+    fontFamily: appFontFamily,
 }
 
 export const ghostButtonStyle: CSSProperties = {
@@ -160,6 +184,7 @@ export const ghostButtonStyle: CSSProperties = {
     fontSize: 13,
     background: '#0f172a',
     color: '#e2e8f0',
+    fontFamily: appFontFamily,
 }
 
 export const dangerButtonStyle: CSSProperties = {
@@ -170,6 +195,7 @@ export const dangerButtonStyle: CSSProperties = {
     fontSize: 13,
     background: '#dc2626',
     color: '#fff',
+    fontFamily: appFontFamily,
 }
 
 export const statusBoxStyle: CSSProperties = {
@@ -181,6 +207,7 @@ export const statusBoxStyle: CSSProperties = {
     color: '#ddcea0',
     boxShadow: '0 12px 30px rgba(0, 0, 0, 0.25)',
     fontSize: 13,
+    fontFamily: appFontFamily,
 }
 
 export const appShellStyle: CSSProperties = {
@@ -192,6 +219,7 @@ export const appShellStyle: CSSProperties = {
     boxShadow: '0 22px 50px rgba(0, 0, 0, 0.35)',
     border: '1px solid #243041',
     backdropFilter: 'blur(10px)',
+    fontFamily: appFontFamily,
 }
 
 export const toolbarStyle: CSSProperties = {
@@ -200,6 +228,7 @@ export const toolbarStyle: CSSProperties = {
     alignItems: 'center',
     gap: 14,
     marginBottom: 18,
+    fontFamily: appFontFamily,
 }
 
 export const toolbarButtonsStyle: CSSProperties = {
@@ -207,6 +236,7 @@ export const toolbarButtonsStyle: CSSProperties = {
     gap: 8,
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
+    fontFamily: appFontFamily,
 }
 
 export const tableHeaderStyle: CSSProperties = {
@@ -218,12 +248,14 @@ export const tableHeaderStyle: CSSProperties = {
     color: '#94a3b8',
     marginBottom: 8,
     padding: '0 4px',
+    fontFamily: appFontFamily,
 }
 
 export const listStyle: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     gap: 10,
+    fontFamily: appFontFamily,
 }
 
 export const rowStyle4: CSSProperties = {
@@ -235,6 +267,7 @@ export const rowStyle4: CSSProperties = {
     borderRadius: 14,
     background: '#111827',
     border: '1px solid #243041',
+    fontFamily: appFontFamily,
 }
 
 export const emptyStateStyle: CSSProperties = {
@@ -245,6 +278,7 @@ export const emptyStateStyle: CSSProperties = {
     border: '1px dashed #334155',
     color: '#94a3b8',
     fontSize: 13,
+    fontFamily: appFontFamily,
 }
 
 export const notesLayoutStyle: CSSProperties = {
@@ -252,6 +286,7 @@ export const notesLayoutStyle: CSSProperties = {
     gridTemplateColumns: '300px 1fr',
     gap: 16,
     alignItems: 'start',
+    fontFamily: appFontFamily,
 }
 
 export const notesSidebarStyle: CSSProperties = {
@@ -260,6 +295,7 @@ export const notesSidebarStyle: CSSProperties = {
     borderRadius: 16,
     padding: 14,
     minHeight: 360,
+    fontFamily: appFontFamily,
 }
 
 export const notesSidebarHeaderRowStyle: CSSProperties = {
@@ -268,12 +304,14 @@ export const notesSidebarHeaderRowStyle: CSSProperties = {
     justifyContent: 'space-between',
     gap: 8,
     marginBottom: 10,
+    fontFamily: appFontFamily,
 }
 
 export const notesSidebarHeaderStyle: CSSProperties = {
     fontSize: 13,
     fontWeight: 700,
     color: '#cbd5e1',
+    fontFamily: appFontFamily,
 }
 
 export const unsavedBadgeStyle: CSSProperties = {
@@ -285,6 +323,7 @@ export const unsavedBadgeStyle: CSSProperties = {
     borderRadius: 999,
     padding: '3px 7px',
     whiteSpace: 'nowrap',
+    fontFamily: appFontFamily,
 }
 
 export const savedBadgeStyle: CSSProperties = {
@@ -296,12 +335,14 @@ export const savedBadgeStyle: CSSProperties = {
     borderRadius: 999,
     padding: '3px 7px',
     whiteSpace: 'nowrap',
+    fontFamily: appFontFamily,
 }
 
 export const notesButtonsListStyle: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
+    fontFamily: appFontFamily,
 }
 
 export const noteListButtonStyle: CSSProperties = {
@@ -315,12 +356,14 @@ export const noteListButtonStyle: CSSProperties = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: 600,
+    fontFamily: appFontFamily,
 }
 
 export const noteListButtonActiveStyle: CSSProperties = {
     border: '1px solid #3b82f6',
     background: 'rgba(59, 130, 246, 0.14)',
     color: '#bfdbfe',
+    fontFamily: appFontFamily,
 }
 
 export const noteButtonTitleStyle: CSSProperties = {
@@ -329,16 +372,19 @@ export const noteButtonTitleStyle: CSSProperties = {
     lineHeight: 1.3,
     marginBottom: 3,
     wordBreak: 'break-word',
+    fontFamily: appFontFamily,
 }
 
 export const noteButtonMetaStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 500,
     color: '#94a3b8',
+    fontFamily: appFontFamily,
 }
 
 export const notesEditorStyle: CSSProperties = {
     minWidth: 0,
+    fontFamily: appFontFamily,
 }
 
 export const noteEditorCardStyle: CSSProperties = {
@@ -346,6 +392,7 @@ export const noteEditorCardStyle: CSSProperties = {
     border: '1px solid #243041',
     borderRadius: 16,
     padding: 14,
+    fontFamily: appFontFamily,
 }
 
 export const noteMetaStyle: CSSProperties = {
@@ -353,6 +400,7 @@ export const noteMetaStyle: CSSProperties = {
     fontWeight: 700,
     color: '#94a3b8',
     marginBottom: 6,
+    fontFamily: appFontFamily,
 }
 
 export const emptySidebarStyle: CSSProperties = {
@@ -362,6 +410,7 @@ export const emptySidebarStyle: CSSProperties = {
     border: '1px dashed #334155',
     color: '#94a3b8',
     fontSize: 13,
+    fontFamily: appFontFamily,
 }
 
 export const modalOverlayStyle: CSSProperties = {
@@ -373,6 +422,7 @@ export const modalOverlayStyle: CSSProperties = {
     justifyContent: 'center',
     padding: 18,
     zIndex: 9999,
+    fontFamily: appFontFamily,
 }
 
 export const modalCardStyle: CSSProperties = {
@@ -383,6 +433,7 @@ export const modalCardStyle: CSSProperties = {
     padding: 20,
     boxShadow: '0 24px 60px rgba(0, 0, 0, 0.5)',
     border: '1px solid #243041',
+    fontFamily: appFontFamily,
 }
 
 export const modalTitleStyle: CSSProperties = {
@@ -390,6 +441,7 @@ export const modalTitleStyle: CSSProperties = {
     fontSize: 21,
     fontWeight: 700,
     color: '#f8fafc',
+    fontFamily: appFontFamily,
 }
 
 export const modalTextStyle: CSSProperties = {
@@ -398,6 +450,7 @@ export const modalTextStyle: CSSProperties = {
     color: '#cbd5e1',
     lineHeight: 1.5,
     fontSize: 14,
+    fontFamily: appFontFamily,
 }
 
 export const modalButtonsStyle: CSSProperties = {
@@ -405,6 +458,7 @@ export const modalButtonsStyle: CSSProperties = {
     gap: 10,
     flexWrap: 'wrap',
     marginTop: 18,
+    fontFamily: appFontFamily,
 }
 
 export const iconButtonStyle: CSSProperties = {
@@ -418,6 +472,7 @@ export const iconButtonStyle: CSSProperties = {
     background: '#0f172a',
     color: '#e2e8f0',
     cursor: 'pointer',
+    fontFamily: appFontFamily,
 }
 
 export const iconButtonDangerStyle: CSSProperties = {

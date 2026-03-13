@@ -1,5 +1,6 @@
 //src/App.tsx
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ConfirmModal } from './components/ConfirmModal'
 import { AuthView } from './components/views/AuthView'
 import { HomeView } from './components/views/HomeView'
 import { NotesView } from './components/views/NotesView'
@@ -21,6 +22,42 @@ function areNotesEqual(a: Note | null, b: Note | null) {
   if (!a || !b) return false
 
   return a.id === b.id && a.title === b.title && a.content === b.content
+}
+
+function sortEntriesByAccount(entries: Entry[]): Entry[] {
+  return [...entries].sort((a, b) =>
+    a.account.localeCompare(b.account, 'es', {
+      sensitivity: 'base',
+      numeric: true,
+    }),
+  )
+}
+
+type ConfirmAction =
+  | { type: 'delete-entry'; index: number }
+  | { type: 'delete-note'; noteId: string }
+  | { type: 'logout' }
+  | { type: 'delete-user-unsaved' }
+  | { type: 'delete-user-final' }
+
+type ConfirmModalState = {
+  open: boolean
+  title: string
+  description: string
+  confirmLabel: string
+  cancelLabel: string
+  danger: boolean
+  action: ConfirmAction | null
+}
+
+const CLOSED_CONFIRM_MODAL: ConfirmModalState = {
+  open: false,
+  title: '',
+  description: '',
+  confirmLabel: 'Confirmar',
+  cancelLabel: 'Cancelar',
+  danger: false,
+  action: null,
 }
 
 export default function App() {
@@ -55,6 +92,9 @@ export default function App() {
     useState<UnsavedPromptAction | null>(null)
   const [pendingNoteSelectionId, setPendingNoteSelectionId] = useState<string | null>(null)
 
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>(CLOSED_CONFIRM_MODAL)
+  const [confirmBusy, setConfirmBusy] = useState(false)
+
   const inactivityTimeoutRef = useRef<number | null>(null)
   const copiedFeedbackTimeoutRef = useRef<number | null>(null)
   const autoLogoutRunningRef = useRef(false)
@@ -87,7 +127,7 @@ export default function App() {
         return
       }
 
-      setEntries(result.entries)
+      setEntries(sortEntriesByAccount(result.entries))
       setVisiblePasswords({})
       setStatus('Contraseñas cargadas.')
     })()
@@ -205,6 +245,18 @@ export default function App() {
     return unsubscribe
   }, [view, noteHasUnsavedChanges])
 
+  function openConfirmModal(config: Omit<ConfirmModalState, 'open'>) {
+    setConfirmModal({
+      open: true,
+      ...config,
+    })
+  }
+
+  function closeConfirmModal() {
+    if (confirmBusy) return
+    setConfirmModal(CLOSED_CONFIRM_MODAL)
+  }
+
   async function handleLogin() {
     setStatus('Iniciando sesión...')
 
@@ -291,15 +343,23 @@ export default function App() {
     }))
   }
 
-  async function handleDeleteEntry(index: number) {
+  function handleDeleteEntry(index: number) {
     const entry = entries[index]
     if (!entry) return
 
-    const confirmed = window.confirm(
-      `¿Seguro que querés eliminar la cuenta "${entry.account || 'sin nombre'}"? Esta acción no se puede deshacer.`,
-    )
+    openConfirmModal({
+      title: 'Eliminar cuenta',
+      description: `¿Seguro que querés eliminar la cuenta "${entry.account || 'sin nombre'}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar cuenta',
+      cancelLabel: 'Cancelar',
+      danger: true,
+      action: { type: 'delete-entry', index },
+    })
+  }
 
-    if (!confirmed) return
+  async function performDeleteEntry(index: number) {
+    const entry = entries[index]
+    if (!entry) return
 
     const nextEntries = entries.filter((_, i) => i !== index)
 
@@ -461,21 +521,26 @@ export default function App() {
     setStatus('Cambios descartados.')
   }
 
-  async function handleDeleteCurrentNote() {
+  function handleDeleteCurrentNote() {
     if (!selectedNoteId) return
 
-    const confirmed = window.confirm(
-      '¿Seguro que querés eliminar esta anotación? Esta acción no se puede deshacer.',
-    )
+    openConfirmModal({
+      title: 'Eliminar anotación',
+      description: '¿Seguro que querés eliminar esta anotación? Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar anotación',
+      cancelLabel: 'Cancelar',
+      danger: true,
+      action: { type: 'delete-note', noteId: selectedNoteId },
+    })
+  }
 
-    if (!confirmed) return
-
-    const nextNotes = notes.filter((note) => note.id !== selectedNoteId)
+  async function performDeleteCurrentNote(noteId: string) {
+    const nextNotes = notes.filter((note) => note.id !== noteId)
 
     let nextSelectedId: string | null = null
 
     if (nextNotes.length > 0) {
-      const deletedIndex = notes.findIndex((note) => note.id === selectedNoteId)
+      const deletedIndex = notes.findIndex((note) => note.id === noteId)
       const fallbackIndex = Math.max(0, deletedIndex - 1)
       nextSelectedId = nextNotes[Math.min(fallbackIndex, nextNotes.length - 1)]?.id ?? null
     }
@@ -530,11 +595,15 @@ export default function App() {
 
   async function handleLogout() {
     if (view === 'notes' && noteHasUnsavedChanges) {
-      const confirmed = window.confirm(
-        'Tenés cambios sin guardar en la anotación actual. ¿Seguro que querés cerrar sesión?',
-      )
-
-      if (!confirmed) return
+      openConfirmModal({
+        title: 'Cerrar sesión con cambios sin guardar',
+        description: 'Tenés cambios sin guardar en la anotación actual. ¿Seguro que querés cerrar sesión?',
+        confirmLabel: 'Cerrar sesión',
+        cancelLabel: 'Cancelar',
+        danger: true,
+        action: { type: 'logout' },
+      })
+      return
     }
 
     await performLogoutCleanup('Sesión cerrada.')
@@ -557,21 +626,32 @@ export default function App() {
     }
   }
 
-  async function handleDeleteCurrentUser() {
+  function handleDeleteCurrentUser() {
     if (view === 'notes' && noteHasUnsavedChanges) {
-      const confirmedUnsaved = window.confirm(
-        'Tenés cambios sin guardar en la anotación actual. ¿Querés continuar igual con la eliminación del usuario?',
-      )
-
-      if (!confirmedUnsaved) return
+      openConfirmModal({
+        title: 'Eliminar usuario con cambios sin guardar',
+        description:
+          'Tenés cambios sin guardar en la anotación actual. ¿Querés continuar igual con la eliminación del usuario?',
+        confirmLabel: 'Continuar',
+        cancelLabel: 'Cancelar',
+        danger: true,
+        action: { type: 'delete-user-unsaved' },
+      })
+      return
     }
 
-    const confirmed = window.confirm(
-      '¿Seguro que querés eliminar este usuario? También se eliminarán su vault cifrado y sus anotaciones cifradas, y no se podrán recuperar.',
-    )
+    openConfirmModal({
+      title: 'Eliminar usuario',
+      description:
+        '¿Seguro que querés eliminar este usuario? También se eliminarán su vault cifrado y sus anotaciones cifradas, y no se podrán recuperar.',
+      confirmLabel: 'Eliminar usuario',
+      cancelLabel: 'Cancelar',
+      danger: true,
+      action: { type: 'delete-user-final' },
+    })
+  }
 
-    if (!confirmed) return
-
+  async function performDeleteCurrentUser() {
     setStatus('Eliminando usuario...')
 
     const result = await window.api.deleteCurrentUser()
@@ -602,6 +682,42 @@ export default function App() {
     noteHasUnsavedChangesRef.current = false
   }
 
+  async function handleConfirmModalConfirm() {
+    const action = confirmModal.action
+    if (!action) return
+
+    if (action.type === 'delete-user-unsaved') {
+      openConfirmModal({
+        title: 'Eliminar usuario',
+        description:
+          '¿Seguro que querés eliminar este usuario? También se eliminarán su vault cifrado y sus anotaciones cifradas, y no se podrán recuperar.',
+        confirmLabel: 'Eliminar usuario',
+        cancelLabel: 'Cancelar',
+        danger: true,
+        action: { type: 'delete-user-final' },
+      })
+      return
+    }
+
+    setConfirmBusy(true)
+
+    try {
+      if (action.type === 'delete-entry') {
+        await performDeleteEntry(action.index)
+      } else if (action.type === 'delete-note') {
+        await performDeleteCurrentNote(action.noteId)
+      } else if (action.type === 'logout') {
+        await performLogoutCleanup('Sesión cerrada.')
+      } else if (action.type === 'delete-user-final') {
+        await performDeleteCurrentUser()
+      }
+
+      setConfirmModal(CLOSED_CONFIRM_MODAL)
+    } finally {
+      setConfirmBusy(false)
+    }
+  }
+
   function updateEntry(index: number, patch: Partial<Entry>) {
     setEntries((prev) =>
       prev.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)),
@@ -610,13 +726,13 @@ export default function App() {
 
   function addEntry() {
     setEntries((prev) => [
-      ...prev,
       {
         id: crypto.randomUUID(),
         account: '',
         username: '',
         password: '',
       },
+      ...prev,
     ])
   }
 
@@ -816,8 +932,10 @@ export default function App() {
           ? 'Abrir otra sin guardar'
           : 'Crear nueva sin guardar'
 
+  let currentView: ReactNode
+
   if (view === 'auth') {
-    return (
+    currentView = (
       <AuthView
         loginUsername={loginUsername}
         setLoginUsername={setLoginUsername}
@@ -838,34 +956,28 @@ export default function App() {
         onCreateUser={handleCreateUser}
       />
     )
-  }
-
-  if (view === 'unlock') {
-    return (
+  } else if (view === 'unlock') {
+    currentView = (
       <UnlockView
         unlockPassword={unlockPassword}
         setUnlockPassword={setUnlockPassword}
         status={status}
         onUnlock={handleUnlockVault}
-        onBack={handleLogout}
+        onBack={() => void handleLogout()}
       />
     )
-  }
-
-  if (view === 'home') {
-    return (
+  } else if (view === 'home') {
+    currentView = (
       <HomeView
         status={status}
         onOpenPasswords={() => setView('passwords')}
         onOpenNotes={() => setView('notes')}
-        onDeleteUser={() => void handleDeleteCurrentUser()}
+        onDeleteUser={() => handleDeleteCurrentUser()}
         onLogout={() => void handleLogout()}
       />
     )
-  }
-
-  if (view === 'passwords') {
-    return (
+  } else if (view === 'passwords') {
+    currentView = (
       <PasswordsView
         entries={entries}
         totalEntries={totalEntries}
@@ -881,14 +993,12 @@ export default function App() {
         onLogout={() => void handleLogout()}
         onUpdateEntry={updateEntry}
         onCopyPassword={(entry) => void handleCopyPassword(entry)}
-        onDeleteEntry={(index) => void handleDeleteEntry(index)}
+        onDeleteEntry={(index) => handleDeleteEntry(index)}
         onToggleEntryPassword={toggleEntryPassword}
       />
     )
-  }
-
-  return (
-    <>
+  } else {
+    currentView = (
       <NotesView
         totalNotes={totalNotes}
         status={status}
@@ -905,12 +1015,18 @@ export default function App() {
         onNewNote={handleNewNote}
         onDiscardChanges={discardCurrentNoteChanges}
         onSaveNote={() => void handleSaveCurrentNote()}
-        onDeleteNote={() => void handleDeleteCurrentNote()}
+        onDeleteNote={() => handleDeleteCurrentNote()}
         onLogout={() => void handleLogout()}
         onSelectNote={handleSelectNote}
         setNoteDraft={setNoteDraft}
         getNoteButtonLabel={getNoteButtonLabel}
       />
+    )
+  }
+
+  return (
+    <>
+      {currentView}
 
       <UnsavedChangesModal
         open={!!unsavedPromptAction}
@@ -921,6 +1037,18 @@ export default function App() {
         onSave={() => void resolveUnsavedPrompt('save')}
         onDiscard={() => void resolveUnsavedPrompt('discard')}
         onCancel={() => void resolveUnsavedPrompt('cancel')}
+      />
+
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel={confirmModal.confirmLabel}
+        cancelLabel={confirmModal.cancelLabel}
+        danger={confirmModal.danger}
+        busy={confirmBusy}
+        onConfirm={() => void handleConfirmModalConfirm()}
+        onCancel={closeConfirmModal}
       />
     </>
   )

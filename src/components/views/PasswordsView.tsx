@@ -142,11 +142,7 @@ export function PasswordsView({
                                         </IconButton>
 
                                         <IconButton
-                                            title={
-                                                isCopied
-                                                    ? 'Contraseña copiada'
-                                                    : 'Copiar contraseña'
-                                            }
+                                            title={isCopied ? 'Contraseña copiada' : 'Copiar contraseña'}
                                             onClick={() => onCopyPassword(entry)}
                                         >
                                             {isCopied ? <Check size={16} /> : <Copy size={16} />}
